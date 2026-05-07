@@ -1,0 +1,25 @@
+[screenwright]
+output_dir = "docs/screenshots"
+base_url   = "https://example.com"
+
+[vision]
+provider            = "anthropic"
+model               = "claude-haiku-4-5"
+structured_metadata = true
+# prompt = "Describe this UI screenshot for documentation purposes."  # override if needed
+
+[[flows]]
+name = "homepage"
+
+  [[flows.steps]]
+  action = "navigate"
+  url    = "/"
+
+  [[flows.steps]]
+  action = "capture"
+  name   = "homepage-full"
+
+  [[flows.steps]]
+  action = "capture"
+  name   = "homepage-hero"
+  selector = "body > div:first-child"

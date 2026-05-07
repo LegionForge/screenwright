@@ -1,0 +1,76 @@
+[screenwright]
+output_dir = "docs/screenshots"
+base_url   = "https://myapp.example.com"
+
+[vision]
+provider            = "ollama"
+model               = "moondream"
+structured_metadata = true
+# To use Anthropic instead:
+#   provider = "anthropic"
+#   model    = "claude-haiku-4-5"
+
+# Login flow — captures the login form empty, filled, and post-login landing page
+[[flows]]
+name = "login-flow"
+
+  [[flows.steps]]
+  action = "navigate"
+  url    = "/login"
+
+  [[flows.steps]]
+  action = "capture"
+  name   = "login-empty"
+  selector = "form"
+
+  [[flows.steps]]
+  action = "fill"
+  selector = "#email"
+  value    = "demo@example.com"
+
+  [[flows.steps]]
+  action = "fill"
+  selector = "#password"
+  value    = "demo-password"
+
+  [[flows.steps]]
+  action = "capture"
+  name   = "login-filled"
+
+  [[flows.steps]]
+  action = "click"
+  selector = "button[type=submit]"
+
+  [[flows.steps]]
+  action = "wait"
+  ms = 800
+
+  [[flows.steps]]
+  action = "capture"
+  name   = "login-success"
+
+
+# Dashboard flow — captures the main dashboard and a detail view
+[[flows]]
+name = "dashboard"
+
+  [[flows.steps]]
+  action = "navigate"
+  url    = "/dashboard"
+
+  [[flows.steps]]
+  action = "capture"
+  name   = "dashboard-overview"
+
+  [[flows.steps]]
+  action = "click"
+  selector = ".report-card:first-child"
+
+  [[flows.steps]]
+  action = "wait"
+  ms = 400
+
+  [[flows.steps]]
+  action = "capture"
+  name   = "report-detail"
+  selector = ".report-detail-panel"
