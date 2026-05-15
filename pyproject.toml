@@ -41,3 +41,4 @@ ignore = ["E501"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+markers = ["integration: tests that require a live browser or network (deselect with -m 'not integration')"]
