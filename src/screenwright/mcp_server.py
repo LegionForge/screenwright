@@ -174,6 +174,7 @@ async def describe_screenshot(
 
     if structured_metadata:
         import json
+
         return json.dumps(metadata.model_dump(), indent=2)
     return metadata.description
 
