@@ -229,6 +229,8 @@ structured_metadata = true
 
 Moondream2 is the recommended default for air-gapped environments or UIs with sensitive data that should not leave your network. Other Ollama vision models (`llava`, `qwen2-vl`) also work — set `model` accordingly.
 
+> **Note:** Moondream2 is a small (~1.6B) model and can return an empty response when asked to follow the structured JSON prompt (`structured_metadata = true`). Screenwright falls back gracefully to an empty description rather than failing the run, but for reliable structured metadata with Moondream, either set `structured_metadata = false` or use a larger local model such as `llava` or `qwen2-vl`.
+
 ### Disable vision entirely
 
 ```toml

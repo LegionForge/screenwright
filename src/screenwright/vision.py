@@ -20,14 +20,14 @@ class ScreenshotMetadata(BaseModel):
 
 _STRUCTURED_SUFFIX = (
     "\n\nReturn ONLY a JSON object with this exact structure and no other text:\n"
-    '{\n'
+    "{\n"
     '  "description": "concise description of what the user sees",\n'
     '  "components": ["list", "of", "ui", "component", "types"],\n'
     '  "state": "e.g. empty, filled, error, loading, success",\n'
     '  "title": "page or modal title visible in the screenshot, or empty string",\n'
     '  "errors_visible": false,\n'
     '  "accessibility_notes": "notable accessibility issues, or empty string"\n'
-    '}'
+    "}"
 )
 
 
@@ -118,6 +118,4 @@ def describe(image_path: Path, cfg: VisionConfig) -> ScreenshotMetadata:
     elif cfg.provider == "ollama":
         return _describe_ollama(image_path, cfg)
     else:
-        raise ValueError(
-            f"Unknown vision provider: {cfg.provider!r}. Use 'anthropic' or 'ollama'."
-        )
+        raise ValueError(f"Unknown vision provider: {cfg.provider!r}. Use 'anthropic' or 'ollama'.")

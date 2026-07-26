@@ -63,9 +63,7 @@ def run(
         console=console,
     ) as progress:
         for flow_def in flows_to_run:
-            task = progress.add_task(
-                f"Running flow: [bold]{flow_def.name}[/bold]", total=None
-            )
+            task = progress.add_task(f"Running flow: [bold]{flow_def.name}[/bold]", total=None)
             result = asyncio.run(run_flow(flow_def, cfg, output_root))
 
             if cfg.vision_describe and result.captures:
@@ -111,6 +109,5 @@ def flows(
     for flow_def in cfg.flows:
         captures = sum(1 for s in flow_def.steps if s.action == "capture")
         console.print(
-            f"  [bold]{flow_def.name}[/bold] — "
-            f"{len(flow_def.steps)} steps, {captures} capture(s)"
+            f"  [bold]{flow_def.name}[/bold] — {len(flow_def.steps)} steps, {captures} capture(s)"
         )

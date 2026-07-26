@@ -34,9 +34,7 @@ class FlowResult:
     captures: list[CaptureResult] = field(default_factory=list)
 
 
-async def _capture_page_or_element(
-    page: Page, output_path: Path, selector: str | None
-) -> None:
+async def _capture_page_or_element(page: Page, output_path: Path, selector: str | None) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     if selector:
         element = await page.query_selector(selector)
