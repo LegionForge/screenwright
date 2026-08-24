@@ -491,6 +491,25 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       including the #31 fix. A real functional pipx-install smoke test remains a valuable,
       larger follow-up, not done here.)*
 
+- [x] **#33 [low-medium, self-correction, found 2026-08-24] Finding #25's own MCP_TOOLS.md fix
+      introduced a new factual error** — while fixing the stale "nothing retries" claim, the
+      rewrite added "the vision-describe step inside `run_flow_tool`" as an example of retried
+      vision calls. `run_flow_tool` never calls a vision provider — it only calls `run_flow()`
+      (pure Playwright capture) and returns
+      `{captures, video_path, video_mp4_path, error, failed_step_index}`, no metadata field at
+      all. The CLI's `cli.py` *does* auto-describe captures after `run_flow()`, and that's what
+      got conflated with the MCP tool — a real mix-up between the CLI and MCP surfaces, not a
+      trivial typo. Also incorrectly implied `describe_flow` calls a vision provider ("via
+      `describe_flow`, after `run_flow_tool` if you want structured metadata") — it only reads
+      `.json` sidecars already on disk, never calls `describe()`. Caught by re-verifying the
+      claim against `mcp_server.py` directly rather than trusting the earlier session's own
+      docs edit — the same discipline that caught the original stale claim in #25. *(fixed
+      2026-08-24: corrected both inaccuracies in `docs/MCP_TOOLS.md`'s "Error handling for
+      agents" section — `run_flow_tool` has no vision-retry path at all, and `describe_flow`
+      doesn't trigger `describe()` calls, it only bundles metadata a separate
+      `describe_screenshot` call already wrote. Wiki's MCP-Tools-Reference page synced. No code
+      changed.)*
+
 ## Test coverage gaps
 
 - [x] `_describe_anthropic`/`_describe_openai` mocked and tested (2026-08-24, alongside #6).

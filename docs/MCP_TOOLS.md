@@ -154,15 +154,18 @@ Transient failures already retry internally, so an agent shouldn't blindly re-is
 call hoping a retry helps — that's already handled. `capture_url`/`capture_element`/
 `run_flow_tool` retry a navigation that fails with a Playwright timeout or a `net::ERR_*`
 network error up to 2x with exponential backoff before surfacing anything; `describe_screenshot`
-(and the vision-describe step inside `run_flow_tool`) similarly retries a transient provider
-failure (429/5xx, timeout) up to 2x. See [Architecture](ARCHITECTURE.md) for the exact retry
-policy.
+similarly retries a transient provider failure (429/5xx, timeout) up to 2x. `run_flow_tool`
+itself never calls a vision provider — it's pure capture, no `describe()` call — so vision
+retries only apply where `describe_screenshot` is actually called; `describe_flow` doesn't call
+it either, it only reads `.json` sidecars already on disk (call `describe_screenshot` per
+capture yourself after `run_flow_tool` if you want metadata `describe_flow` can then bundle up).
+See [Architecture](ARCHITECTURE.md) for the exact retry policy.
 
 What isn't retried, and what an agent should treat as a real, informative failure rather than
-transient — a bad `selector`, a missing/invalid API key, a wrong `flow_name`, or a navigation/
-vision failure that didn't clear after the internal retries: `capture_url`/`capture_element`/
+transient — a bad `selector`, a missing/invalid API key, a wrong `flow_name`, or a navigation
+failure that didn't clear after the internal retries: `capture_url`/`capture_element`/
 `describe_screenshot` surface this as a raised exception the MCP client displays as a tool
-error. `run_flow_tool` is the one exception — it never raises for a step failing mid-flow
-(navigation, vision, or otherwise); it returns a non-null `error` field instead, alongside
-whatever was already captured. An agent should adjust the next call (a different selector, a
+error. `run_flow_tool` is the one exception — it never raises for a step failing mid-flow; it
+returns a non-null `error` field instead, alongside whatever was already captured. An agent
+should adjust the next call (a different selector, a
 corrected flow name) rather than retry the same arguments.
