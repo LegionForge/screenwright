@@ -43,6 +43,12 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       handle None; surface `stop_reason == "max_tokens"` as a warning.
 - [ ] **#7 [low-medium] `except (json.JSONDecodeError, Exception)` swallows everything** —
       `vision.py:54`. Narrow to `(json.JSONDecodeError, ValidationError)`.
+- [x] **mcp SDK 2.0.0 broke CI** — `mcp` shipped a breaking major release that removed
+      `mcp.server.fastmcp` (rewritten around a new `mcpserver` module), and `mcp>=1.0.0` let CI
+      resolve it. This is finding #8 below manifesting for real. *(pinned `mcp>=1.0.0,<2.0.0`
+      2026-08-24, this session — a full migration to the 2.0 API is separate future work: the
+      new module layout is `mcp.server.mcpserver` (and others) not `mcp.server.fastmcp`; read
+      its actual API before migrating, don't assume it mirrors FastMCP's shape.)*
 - [ ] **#8 [medium, supply-chain] All 3 vision SDKs are hard runtime deps** —
       `pyproject.toml:18-20`. anthropic/openai/ollama installed unconditionally though lazily
       imported; open-ended `>=` bounds; no lockfile/hash pinning in CI. Fix: move to extras
