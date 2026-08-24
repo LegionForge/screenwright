@@ -1261,3 +1261,52 @@ def test_run_flow_with_mp4_conversion(tmp_path):
     assert result.video_mp4_path.name == "demo-mp4.mp4"
     assert result.video_mp4_path.exists()
     assert result.video_mp4_path.stat().st_size > 0
+
+
+def test_run_flow_reports_missing_ffmpeg_instead_of_raising(tmp_path, monkeypatch):
+    # A missing ffmpeg with record_mp4 = true used to propagate
+    # FfmpegNotFoundError out of run_flow entirely, crashing the whole CLI/
+    # MCP call and losing the .webm + every capture that already succeeded —
+    # breaking the "always return a FlowResult, never raise" contract every
+    # other failure path in run_flow already follows. Simulated here by
+    # monkeypatching shutil.which rather than requiring an actual missing
+    # ffmpeg, so this test is deterministic regardless of the host machine.
+    monkeypatch.setattr("screenwright.capture.shutil.which", lambda _cmd: None)
+
+    url = _write_page(tmp_path)
+    toml_path = tmp_path / "config.toml"
+    toml_path.write_text(
+        f"""
+        [screenwright]
+        base_url = ""
+
+        [[flows]]
+        name = "demo-mp4-missing-ffmpeg"
+        record = true
+        record_mp4 = true
+
+          [[flows.steps]]
+          action = "navigate"
+          url = "{url}"
+
+          [[flows.steps]]
+          action = "capture"
+          name = "shot"
+        """
+    )
+    cfg = load_config(toml_path)
+    flow = cfg.get_flow("demo-mp4-missing-ffmpeg")
+    output_root = tmp_path / "output"
+
+    import asyncio
+
+    result = asyncio.run(run_flow(flow, cfg, output_root))
+
+    assert len(result.captures) == 1
+    assert result.captures[0].path.exists()
+    assert result.video_path is not None
+    assert result.video_path.exists()
+    assert result.video_mp4_path is None
+    assert result.error is not None
+    assert "mp4 conversion failed" in result.error
+    assert "ffmpeg" in result.error.lower()

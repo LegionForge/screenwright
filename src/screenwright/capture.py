@@ -335,7 +335,19 @@ async def run_flow(
                     raw_path.replace(final_path)
                     result.video_path = final_path
                     if flow.record_mp4:
-                        result.video_mp4_path = await _convert_to_mp4(final_path)
+                        try:
+                            result.video_mp4_path = await _convert_to_mp4(final_path)
+                        except Exception as exc:
+                            # Missing ffmpeg or a failed conversion must not
+                            # crash the whole call and lose the .webm/captures
+                            # that already succeeded — report it on the
+                            # result instead, same "always return a
+                            # FlowResult, never raise" contract the step
+                            # loop and setup path already follow.
+                            mp4_error = f"mp4 conversion failed: {exc}"
+                            result.error = (
+                                f"{result.error}; {mp4_error}" if result.error else mp4_error
+                            )
                 if har_path is not None:
                     result.har_path = har_path
         finally:

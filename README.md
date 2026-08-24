@@ -429,7 +429,9 @@ multiple flows if you only want part of a sequence recorded.
 
 `record_mp4` shells out to `ffmpeg` (`brew install ffmpeg` on macOS) to transcode the `.webm`
 to H.264 `.mp4` after recording finishes. Without it, output stays `.webm` — fine for GitHub
-READMEs and most players, but not for direct upload to LinkedIn/YouTube (see below).
+READMEs and most players, but not for direct upload to LinkedIn/YouTube (see below). If `ffmpeg`
+isn't on `PATH` (or the conversion itself fails), the `.webm` and every screenshot from the flow
+are still written — the run reports the conversion failure rather than losing everything.
 
 ---
 

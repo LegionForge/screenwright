@@ -173,6 +173,23 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       row and ARCHITECTURE.md's module table updated to point at DECISIONS.md instead of the
       now-removed file; wiki's Architecture page synced.)*
 
+- [x] **#14 [high, found 2026-08-24 by fresh review, not in the original Opus pass] `_convert_to_mp4`
+      failure crashes `run_flow` entirely** — `capture.py`'s video-finalize block called
+      `await _convert_to_mp4(final_path)` unguarded when `record_mp4 = true`. A missing `ffmpeg`
+      (the exact case `FfmpegNotFoundError`'s own message anticipates) or a failed conversion
+      propagated out of `run_flow` as an unhandled exception — both `cli.py`'s `_process_flow`
+      and `mcp_server.py`'s `run_flow_tool` call `run_flow` with no try/except, so this crashed
+      the whole CLI run or MCP tool call, losing every capture and the `.webm` that had already
+      succeeded. This is the same class of bug as finding #1 (browser/context setup, the step
+      loop) but for the one finalize-block call that was never brought under the "always return
+      a `FlowResult`, never raise" contract established when #1 was fixed. *(fixed 2026-08-24:
+      wrapped the `_convert_to_mp4` call in try/except; a failure is appended to `result.error`
+      (chained with `;` if a step already failed) instead of raising — `result.video_path`,
+      `result.captures`, and everything else already succeeded stay intact. 1 new test
+      (`test_run_flow_reports_missing_ffmpeg_instead_of_raising`), monkeypatching
+      `shutil.which` to simulate a missing ffmpeg deterministically rather than depending on the
+      host machine's actual ffmpeg install.)*
+
 ## Test coverage gaps
 
 - [x] `_describe_anthropic`/`_describe_openai` mocked and tested (2026-08-24, alongside #6).
@@ -214,8 +231,13 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
 
 ## Missing but valuable features (prioritized)
 
-1. **Structured partial results instead of exceptions** from `run_flow_tool` — falls out of
-   fixing #1. Single highest-leverage change for agent usability.
+1. **Structured partial results instead of exceptions** from `run_flow_tool` *(shipped
+   2026-08-24, alongside finding #1's fix)* — `run_flow_tool` returns
+   `{captures, video_path, video_mp4_path, error, failed_step_index}` instead of raising or
+   returning a bare path list; a mid-flow step failure still returns everything captured before
+   it, not just an exception. Covered by `test_run_flow_tool_returns_partial_result_dict_on_step_failure`
+   in `tests/test_mcp_server.py`. This item was left unchecked after the #1 fix landed even
+   though it was the same commit — noticed on a later backlog review pass, not a separate fix.
 2. **Auth/session injection** *(shipped 2026-08-24)* — `Flow.storage_state` loads a Playwright
    `storage_state` JSON file (cookies + localStorage) before the flow runs, via
    `browser.new_page(storage_state=...)`/`new_context(storage_state=...)`. NOT implemented:

@@ -154,3 +154,12 @@ sequenceDiagram
   `NavigateStep` handling and `capture_single_url`'s initial navigation; the existing per-step
   try/except in `run_flow` already turns an exhausted-retries raise into `FlowResult.error`, so
   no additional error-handling changes were needed there.
+- **The mp4-conversion call was the one finalize-block step never brought under the
+  "never raise" contract.** `run_flow`'s browser/context setup and its per-step loop both catch
+  exceptions and report them via `FlowResult.error`, but `_convert_to_mp4(final_path)` (called
+  when `record_mp4 = true`) was still unguarded — a missing `ffmpeg` or a failed conversion
+  propagated straight out of `run_flow`, and neither `cli.py` nor `mcp_server.py` wraps that
+  call, so it crashed the whole CLI run or MCP tool call rather than reporting a partial result.
+  Fixed by wrapping just that call in try/except and appending to `result.error` (chained with a
+  step failure's error if one already occurred) — `result.video_path` and every capture already
+  written stay intact.
