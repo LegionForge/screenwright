@@ -4,7 +4,12 @@ import json
 from pathlib import Path
 
 from screenwright.capture import CaptureResult, FlowResult
-from screenwright.output import save_metadata, write_flow_output, write_root_readme
+from screenwright.output import (
+    _escape_markdown_cell,
+    save_metadata,
+    write_flow_output,
+    write_root_readme,
+)
 from screenwright.vision import ScreenshotMetadata
 
 
@@ -55,6 +60,43 @@ def test_write_flow_output_handles_missing_metadata(tmp_path):
     content = index_path.read_text()
     assert "| ![](homepage-full.png) |  |" in content
     assert not capture.path.with_suffix(".json").exists()
+
+
+def test_escape_markdown_cell_strips_html_tags():
+    assert _escape_markdown_cell('a <img src=x onerror="alert(1)"> b') == "a  b"
+
+
+def test_escape_markdown_cell_escapes_pipes_and_backslashes():
+    assert _escape_markdown_cell("a | b \\ c") == r"a \| b \\ c"
+
+
+def test_escape_markdown_cell_collapses_newlines():
+    assert _escape_markdown_cell("line one\nline two") == "line one line two"
+
+
+def test_escape_markdown_cell_caps_length():
+    long_text = "x" * 1000
+    result = _escape_markdown_cell(long_text)
+    assert len(result) <= 500
+    assert result.endswith("…")
+
+
+def test_write_flow_output_escapes_malicious_description(tmp_path):
+    metadata = ScreenshotMetadata(
+        description="Login form | <script>alert(1)</script> broken | table"
+    )
+    capture = _make_capture(tmp_path, "login", "login-empty", metadata=metadata)
+    result = FlowResult(flow_name="login", captures=[capture])
+
+    index_path = write_flow_output(result, tmp_path)
+    content = index_path.read_text()
+
+    assert "<script>" not in content
+    # A 2-column row has exactly 3 structural pipes (leading, middle, trailing).
+    # Strip escaped pipes first — every pipe that came from the description
+    # must be escaped, leaving only the table's own delimiters behind.
+    row = next(line for line in content.splitlines() if "login-empty.png" in line)
+    assert row.replace("\\|", "").count("|") == 3
 
 
 def test_write_root_readme_lists_all_flows(tmp_path):

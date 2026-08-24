@@ -1,9 +1,32 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 from screenwright.capture import CaptureResult, FlowResult
+
+_HTML_TAG_RE = re.compile(r"<[^>]*>")
+_MAX_DESCRIPTION_LEN = 500
+
+
+def _escape_markdown_cell(text: str) -> str:
+    """Make vision-model output safe to embed in a markdown table cell.
+
+    `description` is model output derived from whatever was on the captured
+    page — untrusted content, potentially shaped by a prompt-injection
+    payload on the page itself. This output ends up in docs people commit
+    and GitHub renders, so: strip any HTML tags (belt-and-suspenders on top
+    of GitHub's own sanitizer), escape backslashes/pipes so the description
+    can't break out of its table cell, collapse newlines, and cap length so
+    one bad description can't balloon an index file.
+    """
+    text = _HTML_TAG_RE.sub("", text)
+    text = text.replace("\\", "\\\\").replace("|", "\\|")
+    text = text.replace("\n", " ").strip()
+    if len(text) > _MAX_DESCRIPTION_LEN:
+        text = text[: _MAX_DESCRIPTION_LEN - 1].rstrip() + "…"
+    return text
 
 
 def save_metadata(capture: CaptureResult, output_root: Path) -> Path:
@@ -26,11 +49,12 @@ def _flow_index_md(flow_result: FlowResult) -> str:
         "|------------|-------------|",
     ]
     for capture in flow_result.captures:
+        # capture_name is validated (config.validate_safe_name / mcp_server's
+        # _resolve_capture_path) to only ever contain [A-Za-z0-9._-], so it
+        # never needs URL-encoding here — unlike `desc` below, which is
+        # unconstrained model output and must be escaped.
         img_ref = f"![]({capture.capture_name}.png)"
-        if capture.metadata:
-            desc = capture.metadata.description.replace("\n", " ").strip()
-        else:
-            desc = ""
+        desc = _escape_markdown_cell(capture.metadata.description) if capture.metadata else ""
         lines.append(f"| {img_ref} | {desc} |")
     lines.append("")
 

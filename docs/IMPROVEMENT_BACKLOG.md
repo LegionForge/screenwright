@@ -32,11 +32,18 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       match. Tests: `test_run_flow_step_failure_returns_partial_result_not_exception`,
       `test_run_flow_with_recording_finalizes_video_on_step_failure`,
       `test_run_flow_tool_returns_partial_result_dict_on_step_failure`.)*
-- [ ] **#3 [medium-high] Vision-model output written unescaped into public markdown** —
+- [x] **#3 [medium-high] Vision-model output written unescaped into public markdown** —
       `output.py:29-34`. `description` (model output derived from attacker-controlled page
       content) goes straight into a markdown table cell with no escaping; `capture_name` isn't
       URL-encoded in the image ref. Fix: escape `|`/backticks/leading `#`, cap length,
       percent-encode filenames in image refs, consider stripping HTML tags from model output.
+      *(fixed 2026-08-24: added `_escape_markdown_cell()` — strips HTML tags, escapes
+      backslashes/pipes, collapses newlines, caps at 500 chars. The `capture_name`
+      URL-encoding half turned out to already be covered by the earlier #2 fix:
+      `validate_safe_name` constrains all names to `[A-Za-z0-9._-]`, which is already
+      URL-safe — no separate encoding needed, noted with a comment in `output.py` so a future
+      change to the allowed charset doesn't silently reopen this. Tests: 4 unit tests on
+      `_escape_markdown_cell` + `test_write_flow_output_escapes_malicious_description`.)*
 - [ ] **#4 [medium-high] No env-var interpolation for `fill` values** — `config.py:31-34`,
       `capture.py:138`. Only way to script a login today is a plaintext credential in TOML next
       to the code, which then also gets screenshotted and shipped to a vision API. Fix:
