@@ -1,9 +1,19 @@
 from __future__ import annotations
 
+import types
+
 import pytest
 
 from screenwright.config import VisionConfig
-from screenwright.vision import _build_prompt, _is_transient, _parse_response, _with_retry
+from screenwright.vision import (
+    _build_prompt,
+    _describe_anthropic,
+    _describe_openai,
+    _first_text_block,
+    _is_transient,
+    _parse_response,
+    _with_retry,
+)
 
 
 def test_build_prompt_appends_structured_suffix_when_enabled():
@@ -128,3 +138,123 @@ def test_with_retry_does_not_retry_non_transient_errors():
     with pytest.raises(_FakeAuthError):
         _with_retry(permanently_broken)
     assert calls["count"] == 1  # no retry attempted
+
+
+def test_first_text_block_skips_non_text_blocks():
+    blocks = [
+        types.SimpleNamespace(type="thinking", text="internal reasoning"),
+        types.SimpleNamespace(type="text", text="the actual description"),
+    ]
+    assert _first_text_block(blocks) == "the actual description"
+
+
+def test_first_text_block_returns_empty_string_when_none_found():
+    blocks = [types.SimpleNamespace(type="tool_use", text="irrelevant")]
+    assert _first_text_block(blocks) == ""
+
+
+def test_first_text_block_handles_empty_list():
+    assert _first_text_block([]) == ""
+
+
+class _FakeAnthropicMessages:
+    def __init__(self, message):
+        self._message = message
+
+    def create(self, **kwargs):
+        return self._message
+
+
+class _FakeAnthropicClient:
+    def __init__(self, message):
+        self.messages = _FakeAnthropicMessages(message)
+
+
+def test_describe_anthropic_uses_first_text_block(monkeypatch, tmp_path):
+    import anthropic
+
+    image = tmp_path / "shot.png"
+    image.write_bytes(b"fake-png")
+
+    message = types.SimpleNamespace(
+        content=[types.SimpleNamespace(type="text", text="A login form")],
+        stop_reason="end_turn",
+    )
+    monkeypatch.setattr(anthropic, "Anthropic", lambda: _FakeAnthropicClient(message))
+
+    result = _describe_anthropic(image, VisionConfig(structured_metadata=False))
+    assert result.description == "A login form"
+
+
+def test_describe_anthropic_warns_on_truncation(monkeypatch, tmp_path):
+    import anthropic
+
+    image = tmp_path / "shot.png"
+    image.write_bytes(b"fake-png")
+
+    message = types.SimpleNamespace(
+        content=[types.SimpleNamespace(type="text", text="cut off mid-")],
+        stop_reason="max_tokens",
+    )
+    monkeypatch.setattr(anthropic, "Anthropic", lambda: _FakeAnthropicClient(message))
+
+    with pytest.warns(UserWarning, match="truncated"):
+        _describe_anthropic(image, VisionConfig(structured_metadata=False))
+
+
+class _FakeOpenAIChoice:
+    def __init__(self, content, finish_reason="stop"):
+        self.message = types.SimpleNamespace(content=content)
+        self.finish_reason = finish_reason
+
+
+class _FakeOpenAICompletions:
+    def __init__(self, choice):
+        self._choice = choice
+
+    def create(self, **kwargs):
+        return types.SimpleNamespace(choices=[self._choice])
+
+
+class _FakeOpenAIClient:
+    def __init__(self, choice):
+        self.chat = types.SimpleNamespace(completions=_FakeOpenAICompletions(choice))
+
+
+def test_describe_openai_handles_none_content_without_crashing(monkeypatch, tmp_path):
+    import openai
+
+    image = tmp_path / "shot.png"
+    image.write_bytes(b"fake-png")
+
+    choice = _FakeOpenAIChoice(content=None)
+    monkeypatch.setattr(openai, "OpenAI", lambda: _FakeOpenAIClient(choice))
+
+    result = _describe_openai(image, VisionConfig(structured_metadata=False))
+    assert result.description == ""
+
+
+def test_describe_openai_warns_on_truncation(monkeypatch, tmp_path):
+    import openai
+
+    image = tmp_path / "shot.png"
+    image.write_bytes(b"fake-png")
+
+    choice = _FakeOpenAIChoice(content="cut off mid-", finish_reason="length")
+    monkeypatch.setattr(openai, "OpenAI", lambda: _FakeOpenAIClient(choice))
+
+    with pytest.warns(UserWarning, match="truncated"):
+        _describe_openai(image, VisionConfig(structured_metadata=False))
+
+
+def test_describe_openai_returns_normal_description(monkeypatch, tmp_path):
+    import openai
+
+    image = tmp_path / "shot.png"
+    image.write_bytes(b"fake-png")
+
+    choice = _FakeOpenAIChoice(content="A homepage hero section")
+    monkeypatch.setattr(openai, "OpenAI", lambda: _FakeOpenAIClient(choice))
+
+    result = _describe_openai(image, VisionConfig(structured_metadata=False))
+    assert result.description == "A homepage hero section"

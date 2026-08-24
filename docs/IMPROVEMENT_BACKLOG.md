@@ -76,11 +76,21 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       detection unit tests in `test_vision.py`, 1 CLI integration test via Typer's `CliRunner`
       (`tests/test_cli.py`, new file — a first, narrow start on the "cli.py is untested"
       coverage gap below, not a full pass at it).)*
-- [ ] **#6 [medium] Provider response unpacking assumes a shape that isn't guaranteed** —
+- [x] **#6 [medium] Provider response unpacking assumes a shape that isn't guaranteed** —
       `vision.py:91,137`. OpenAI `content=None` on refusal/length-stop → AttributeError, not a
       useful error. Anthropic's first content block isn't guaranteed text. `max_tokens=512`
       silently truncates+degrades with no signal. Fix: defensively locate first text block /
       handle None; surface `stop_reason == "max_tokens"` as a warning.
+      *(fixed 2026-08-24: added `_first_text_block()` — scans Anthropic's `message.content` for
+      the first `type == "text"` block instead of assuming index 0, returns `""` if none found
+      instead of raising. OpenAI's `choice.message.content or ""` handles the `None`-on-refusal
+      case the same way. Both paths now call `_warn_if_truncated()` (Python `warnings.warn`,
+      `UserWarning`) when `stop_reason == "max_tokens"` (Anthropic) / `finish_reason == "length"`
+      (OpenAI) — visible signal instead of a silent truncated/malformed description. Also closed
+      the "zero test coverage" gap noted below for `_describe_anthropic`/`_describe_openai`:
+      10 new tests mock the SDK clients directly (`monkeypatch.setattr(anthropic, "Anthropic",
+      ...)` etc.) rather than the network. `_describe_ollama` remains untested — its response
+      shape (plain dict) doesn't have this class of bug, lower priority.)*
 - [ ] **#7 [low-medium] `except (json.JSONDecodeError, Exception)` swallows everything** —
       `vision.py:54`. Narrow to `(json.JSONDecodeError, ValidationError)`.
 - [x] **mcp SDK 2.0.0 broke CI** — `mcp` shipped a breaking major release that removed
@@ -110,8 +120,9 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
 
 ## Test coverage gaps
 
-- [ ] `_describe_anthropic`/`_describe_openai`/`_describe_ollama` have zero coverage — mock the
-      3 SDKs, assert request shape + None/empty-response handling (covers #6).
+- [x] `_describe_anthropic`/`_describe_openai` mocked and tested (2026-08-24, alongside #6).
+      `_describe_ollama` still has zero coverage — lower priority, its response shape (plain
+      dict) doesn't share the "unpacking assumptions" bug class #6 fixed for the other two.
 - [ ] MCP server has no tests at all — 5 tools, `_resolve_config` env fallback, `_resolve_output`
       heuristic (#9) all untested. FastMCP tools are plain async functions, callable directly.
 - [ ] No test covers a flow whose step fails mid-way (#1) or a `describe()` failure mid-run (#5).

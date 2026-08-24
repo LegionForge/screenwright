@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import json
 import time
+import warnings
 from pathlib import Path
 from typing import Callable, TypeVar
 
@@ -94,6 +95,30 @@ def _encode_image(image_path: Path) -> str:
         return base64.standard_b64encode(f.read()).decode("utf-8")
 
 
+def _first_text_block(content_blocks) -> str:
+    """Find the first text block in an Anthropic message's content list.
+
+    ``message.content[0]`` isn't guaranteed to be a text block — depending
+    on model/request config it could be a thinking block, a tool_use block,
+    or the list could be empty. Scan for the first block with type "text"
+    instead of assuming position 0, and return "" (handled gracefully by
+    _parse_response) rather than raising if none is found.
+    """
+    for block in content_blocks:
+        if getattr(block, "type", None) == "text":
+            return block.text
+    return ""
+
+
+def _warn_if_truncated(provider: str, truncated: bool) -> None:
+    if truncated:
+        warnings.warn(
+            f"{provider} vision response was truncated (max_tokens=512) — the "
+            "description may be incomplete or fail structured-JSON parsing.",
+            stacklevel=3,
+        )
+
+
 def _describe_anthropic(image_path: Path, cfg: VisionConfig) -> ScreenshotMetadata:
     import anthropic
 
@@ -121,7 +146,8 @@ def _describe_anthropic(image_path: Path, cfg: VisionConfig) -> ScreenshotMetada
             }
         ],
     )
-    return _parse_response(message.content[0].text, cfg.structured_metadata)
+    _warn_if_truncated("Anthropic", message.stop_reason == "max_tokens")
+    return _parse_response(_first_text_block(message.content), cfg.structured_metadata)
 
 
 def _describe_ollama(image_path: Path, cfg: VisionConfig) -> ScreenshotMetadata:
@@ -167,7 +193,11 @@ def _describe_openai(image_path: Path, cfg: VisionConfig) -> ScreenshotMetadata:
             }
         ],
     )
-    return _parse_response(response.choices[0].message.content, cfg.structured_metadata)
+    choice = response.choices[0]
+    _warn_if_truncated("OpenAI", choice.finish_reason == "length")
+    # content is None on a refusal or when the model emits tool_calls instead
+    # of a text message — pass "" rather than crashing on .strip() downstream.
+    return _parse_response(choice.message.content or "", cfg.structured_metadata)
 
 
 def describe(image_path: Path, cfg: VisionConfig) -> ScreenshotMetadata:
