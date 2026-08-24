@@ -380,6 +380,21 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       Wiki's MCP-Tools-Reference page synced. No code changed — this is the same "docs went
       stale relative to real behavior" class of gap as #23, just in a different file.)*
 
+- [x] **#26 [low-medium, found 2026-08-24 by fresh review, not in the original Opus pass] Wiki's
+      Architecture page had drifted far behind `docs/ARCHITECTURE.md`** — every fix this session
+      added a "Why this shape" bullet to `docs/ARCHITECTURE.md` (grown from ~100 to 218 lines),
+      but the wiki mirror was only ever updated when a *different* fix happened to also touch a
+      *different* wiki page — nothing specifically re-synced Architecture.md itself, so it sat
+      frozen after the HAR-capture bullet while 9 more bullets (`--check`, navigation retries,
+      the mp4/finalize-block/`capture_single_url` crash fixes, the partial-flow-failure docs
+      banner, duplicate-name validation, the variant `color_scheme` leak) accumulated only in
+      the real file. Also `docs/ARCHITECTURE.md`'s own module-responsibilities table still
+      listed `mcp_server.py`'s tools without `describe_flow`, missing since that tool shipped
+      earlier this session. *(fixed 2026-08-24: added the missing tool to the module table;
+      synced all 9 missing bullets into the wiki's Architecture page. No code changed — same
+      "docs went stale relative to real behavior" class of gap as #23/#25, this time the wiki
+      itself rather than a docs/ file.)*
+
 ## Test coverage gaps
 
 - [x] `_describe_anthropic`/`_describe_openai` mocked and tested (2026-08-24, alongside #6).
