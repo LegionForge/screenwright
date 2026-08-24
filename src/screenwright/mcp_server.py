@@ -17,11 +17,14 @@ mcp = FastMCP(
     instructions=(
         "Screenwright captures UI screenshots for documentation. "
         "Use capture_url or capture_element for one-off captures. "
-        "Use run_flow to execute a multi-step flow from a TOML config. "
+        "Use list_flows to see what flows a TOML config defines. "
+        "Use run_flow_tool to execute a multi-step flow from a TOML config — pass "
+        "vision_describe=true to also describe each capture and write .json metadata "
+        "sidecars in the same call, instead of a separate describe_screenshot round-trip "
+        "per screenshot. "
         "Use describe_screenshot to get a vision-model description of any captured PNG. "
         "Use describe_flow to get everything already captured for a flow (markdown index "
-        "plus every capture's structured metadata) in one call after run_flow_tool, instead "
-        "of one describe_screenshot call per screenshot."
+        "plus every capture's structured metadata) in one call after run_flow_tool."
     ),
 )
 

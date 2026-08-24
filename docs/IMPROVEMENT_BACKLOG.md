@@ -530,6 +530,22 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       and the wiki's MCP-Tools-Reference page updated, including correcting the "Error handling"
       section's retry/failure-surfacing description for the new opt-in vision path.)*
 
+- [x] **#35 [high, found 2026-08-24 by fresh review] MCP server's own `instructions` field —
+      sent verbatim to every connecting agent — pointed to a tool name that doesn't exist, and
+      omitted one that does** — `mcp_server.py`'s `FastMCP(..., instructions=...)` said "Use
+      `run_flow` to execute a multi-step flow," but the actual registered tool name is
+      `run_flow_tool` (confirmed live against `mcp.list_tools()` before fixing, not assumed).
+      This is arguably more consequential than any wiki/docs staleness fixed earlier this
+      session — it's the literal text every MCP client receives as its only built-in guidance
+      for the server, not something a user has to go read separately. `list_flows` — a real,
+      useful tool — was also never mentioned at all. *(fixed 2026-08-24: corrected `run_flow` →
+      `run_flow_tool`, added a `list_flows` mention, and folded in a brief note about the new
+      `vision_describe` param from #34. 1 new regression test
+      (`test_mcp_instructions_reference_real_tool_names`) that asserts every name returned by
+      `mcp.list_tools()` appears by its exact name somewhere in `mcp.instructions` — this test
+      caught the `list_flows` omission live while being written, the same way it would catch a
+      future tool rename left stale in this string.)*
+
 ## Test coverage gaps
 
 - [x] `_describe_anthropic`/`_describe_openai` mocked and tested (2026-08-24, alongside #6).

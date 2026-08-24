@@ -519,3 +519,25 @@ def test_describe_flow_bundles_index_and_capture_metadata(tmp_path):
     assert captures_by_name["hero"]["metadata"] == {"description": "Hero section"}
     assert captures_by_name["footer"]["metadata"] is None
     assert captures_by_name["hero"]["path"] == str(flow_dir / "hero.png")
+
+
+def test_mcp_instructions_reference_real_tool_names():
+    # `mcp.instructions` is sent verbatim to every connecting MCP client as
+    # guidance on how to use this server — a tool name mentioned there that
+    # doesn't match a real registered tool (e.g. "run_flow" when the actual
+    # tool is "run_flow_tool") silently misleads every agent that reads it.
+    # Guards exactly that class of bug: every real tool name must appear,
+    # by its exact name, somewhere in the instructions text.
+    import asyncio
+    import re
+
+    from screenwright.mcp_server import mcp
+
+    tools = asyncio.run(mcp.list_tools())
+    real_names = {t.name for t in tools}
+    assert real_names, "expected at least one registered tool"
+
+    for name in real_names:
+        assert re.search(rf"\b{re.escape(name)}\b", mcp.instructions), (
+            f"tool {name!r} is registered but never mentioned by its exact name in mcp.instructions"
+        )
