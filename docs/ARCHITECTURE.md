@@ -163,3 +163,13 @@ sequenceDiagram
   Fixed by wrapping just that call in try/except and appending to `result.error` (chained with a
   step failure's error if one already occurred) — `result.video_path` and every capture already
   written stay intact.
+- **`capture_single_url` never had `run_flow`'s browser-close guarantee.** `run_flow` wraps its
+  whole body in try/finally so `browser.close()` always runs; `capture_single_url` — the function
+  behind the MCP `capture_url`/`capture_element` tools — called `await browser.close()` as its
+  literal last line instead, so any exception from `new_page`, navigation, or the capture itself
+  (a bad `selector` is the common case) skipped it and leaked the Chromium process. Real risk on
+  the MCP surface specifically: an agent plausibly retries `capture_url`/`capture_element` with a
+  different selector after a "Selector not found" error, leaking one more browser per failed
+  attempt. Fixed by wrapping the body in try/finally, matching `run_flow`'s existing pattern
+  exactly — no behavior change to what gets raised or returned on success, only a guarantee that
+  cleanup always runs.

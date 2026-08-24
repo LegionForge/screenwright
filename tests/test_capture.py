@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import shutil
+from pathlib import Path
 
 import pytest
 from playwright.async_api import Error as PlaywrightError
 from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 
+import screenwright.capture as capture_module
 from screenwright.capture import (
     _goto_with_retry,
     _is_transient_navigation_error,
@@ -88,6 +90,52 @@ async def test_goto_with_retry_does_not_retry_non_transient_errors():
     with pytest.raises(PlaywrightError):
         await _goto_with_retry(page, "http://example.com", "load")
     assert page.calls == 1  # no retry attempted
+
+
+class _FakeBrowser:
+    def __init__(self):
+        self.closed = False
+
+    async def new_page(self, **_kwargs):
+        raise RuntimeError("simulated new_page failure")
+
+    async def close(self):
+        self.closed = True
+
+
+class _FakeChromium:
+    def __init__(self, browser):
+        self._browser = browser
+
+    async def launch(self):
+        return self._browser
+
+
+class _FakePlaywrightContext:
+    def __init__(self, browser):
+        self.chromium = _FakeChromium(browser)
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *_exc_info):
+        return False
+
+
+async def test_capture_single_url_closes_browser_even_if_setup_fails(monkeypatch):
+    # capture_single_url used to `await browser.close()` as the last line
+    # of its body — a bad selector or a failed navigation raised past that
+    # line entirely, leaking the launched Chromium process. Plausible in
+    # practice on the MCP surface: an agent retrying capture_url/
+    # capture_element with a different selector after a "Selector not
+    # found" error leaks one more browser per failed attempt.
+    browser = _FakeBrowser()
+    monkeypatch.setattr(capture_module, "async_playwright", lambda: _FakePlaywrightContext(browser))
+
+    with pytest.raises(RuntimeError, match="simulated new_page failure"):
+        await capture_single_url("http://example.com", Path("/tmp/does-not-matter.png"))
+
+    assert browser.closed is True
 
 
 _HTML = """

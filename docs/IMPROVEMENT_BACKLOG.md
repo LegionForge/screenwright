@@ -207,6 +207,24 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       unrelated fix didn't regress anything, and by inspecting the YAML directly since GitHub
       Actions workflows aren't part of the pytest suite.)*
 
+- [x] **#16 [high, found 2026-08-24 by fresh review, not in the original Opus pass]
+      `capture_single_url` leaks the browser process on any setup/navigation/capture failure** —
+      `capture.py:155-174`. `await browser.close()` was the literal last line of the function
+      body, not in a try/finally — a bad `selector` (raised by `_capture_page_or_element`), a
+      navigation failure after `_goto_with_retry` exhausts its retries, or any `new_page`
+      failure all skipped it, leaking the launched Chromium process. This is the same class of
+      bug as finding #1, but for `capture_single_url` — the function behind the MCP
+      `capture_url`/`capture_element` tools — which never got the same try/finally treatment
+      `run_flow` did. Real risk on the MCP surface specifically: an agent plausibly retries
+      `capture_url`/`capture_element` with a different selector after a "Selector not found"
+      error, leaking one more browser per failed attempt — over a long agent session this is a
+      genuine resource-exhaustion path on whatever host runs the MCP server. *(fixed 2026-08-24:
+      wrapped the body in try/finally, matching `run_flow`'s existing pattern exactly — no
+      behavior change to what gets raised or returned on success. 1 new test
+      (`test_capture_single_url_closes_browser_even_if_setup_fails`), using a fake
+      `async_playwright`/browser/chromium trio (monkeypatched) rather than a real browser, so
+      it's deterministic and doesn't depend on triggering a real Playwright failure.)*
+
 ## Test coverage gaps
 
 - [x] `_describe_anthropic`/`_describe_openai` mocked and tested (2026-08-24, alongside #6).

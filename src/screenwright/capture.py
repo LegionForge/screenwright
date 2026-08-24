@@ -164,13 +164,23 @@ async def capture_single_url(
 ) -> Path:
     async with async_playwright() as p:
         browser: Browser = await p.chromium.launch()
-        page: Page = await browser.new_page(
-            viewport={"width": viewport_width, "height": viewport_height}
-        )
-        page.set_default_timeout(timeout_ms)
-        await _goto_with_retry(page, url, wait_until)
-        await _capture_page_or_element(page, output_path, selector, animations=animations)
-        await browser.close()
+        try:
+            page: Page = await browser.new_page(
+                viewport={"width": viewport_width, "height": viewport_height}
+            )
+            page.set_default_timeout(timeout_ms)
+            await _goto_with_retry(page, url, wait_until)
+            await _capture_page_or_element(page, output_path, selector, animations=animations)
+        finally:
+            # A bad selector (or a navigation failure after retries are
+            # exhausted) used to skip this close entirely, leaking the
+            # Chromium process — a real risk on the MCP surface, where an
+            # agent plausibly retries capture_url/capture_element with a
+            # different selector after a "Selector not found" error, each
+            # failed attempt leaking one more browser. run_flow already
+            # guarantees this via its own try/finally; this function never
+            # had the same guarantee.
+            await browser.close()
     return output_path
 
 
