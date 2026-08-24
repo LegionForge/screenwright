@@ -298,6 +298,29 @@ def test_describe_flow_returns_empty_when_flow_never_run(tmp_path):
     assert result == {"flow_name": "never-run", "index_md": None, "captures": []}
 
 
+@pytest.mark.parametrize(
+    "malicious_flow_name",
+    [
+        "../../../../etc/passwd",
+        "..",
+        "foo/../../bar",
+        "/etc/passwd",
+        "a/b",
+    ],
+)
+def test_describe_flow_rejects_path_traversal_flow_name(tmp_path, malicious_flow_name):
+    # flow_name builds `out_root / flow_name` directly — without
+    # validation, a value like "../../secrets" would let describe_flow read
+    # index.md/*.png/*.json from arbitrary directories outside out_root and
+    # return their contents to the calling agent. Same threat model as
+    # capture_url/capture_element's `name` param: flow_name can come from
+    # an LLM acting on untrusted page content.
+    import asyncio
+
+    with pytest.raises(ValueError):
+        asyncio.run(describe_flow(malicious_flow_name, output_dir=str(tmp_path / "out")))
+
+
 def test_describe_flow_bundles_index_and_capture_metadata(tmp_path):
     import json
 

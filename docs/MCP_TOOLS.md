@@ -107,7 +107,7 @@ first.
 
 | Param | Type | Required | Description |
 |---|---|---|---|
-| `flow_name` | string | yes | Name of a flow that has already been run |
+| `flow_name` | string | yes | Name of a flow that has already been run. Must match `^[A-Za-z0-9._-]+$` and not be a path-traversal segment — same validation as `capture_url`/`capture_element`'s `name` param, since this builds a filesystem path |
 | `config_path` | string | no | Path to TOML config, used only to resolve `output_dir` the same way `run_flow_tool` does. Falls back to `SCREENWRIGHT_CONFIG` |
 | `output_dir` | string | no | Override the output directory from the config |
 

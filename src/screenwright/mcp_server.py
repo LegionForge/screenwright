@@ -207,6 +207,13 @@ async def describe_flow(
         .json sidecar (vision was disabled, or describe() failed for just
         that one) has metadata: None rather than being omitted.
     """
+    # flow_name builds a filesystem path below (out_root / flow_name) and,
+    # like capture_url/capture_element's `name` param, can come from an LLM
+    # acting on untrusted page content — without this, "../../etc" style
+    # values would let describe_flow read index.md/*.png/*.json from
+    # arbitrary directories outside out_root and return their contents to
+    # the calling agent.
+    validate_safe_name(flow_name)
     cfg = _resolve_config(config_path)
     out_root = _resolve_output(cfg, output_dir)
     flow_dir = out_root / flow_name

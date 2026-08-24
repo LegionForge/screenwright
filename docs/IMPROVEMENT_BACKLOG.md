@@ -225,6 +225,23 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       `async_playwright`/browser/chromium trio (monkeypatched) rather than a real browser, so
       it's deterministic and doesn't depend on triggering a real Playwright failure.)*
 
+- [x] **#17 [high, found 2026-08-24 by fresh review, not in the original Opus pass]
+      `describe_flow`'s `flow_name` had no path-traversal validation** — `mcp_server.py`'s
+      `describe_flow` built `flow_dir = out_root / flow_name` directly, with no call to
+      `validate_safe_name` — the same protection `capture_url`/`capture_element`'s `name` param
+      already got under finding #2. `flow_name` is agent-supplied on this MCP surface, same
+      threat model as #2: an LLM acting on untrusted page content could pass
+      `flow_name="../../../../home/user/.config/some-app"` and `describe_flow` would read
+      `index.md`/`*.png`/`*.json` from that arbitrary directory and return their contents to the
+      calling agent — an information-disclosure path that `run_flow_tool`'s `flow_name` doesn't
+      share (it's only a dict-lookup key there, never a path segment). *(fixed 2026-08-24: added
+      `validate_safe_name(flow_name)` at the top of `describe_flow`, before any path
+      construction — rejects, doesn't sanitize, matching every other name-validation site in
+      this codebase. 5 new parametrized tests
+      (`test_describe_flow_rejects_path_traversal_flow_name`), reusing the same traversal
+      payloads finding #2's own tests use. `docs/MCP_TOOLS.md` and the wiki's
+      MCP-Tools-Reference page updated to document the constraint.)*
+
 ## Test coverage gaps
 
 - [x] `_describe_anthropic`/`_describe_openai` mocked and tested (2026-08-24, alongside #6).
