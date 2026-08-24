@@ -78,3 +78,9 @@ sequenceDiagram
 - **Vision is fully optional and provider-swappable** so a private/air-gapped flow (Moondream2
   via Ollama) and a cloud flow (Claude Haiku / GPT-4o-mini) use the exact same `describe()`
   interface and the exact same `ScreenshotMetadata` shape downstream.
+- **A step failure never raises out of `run_flow`.** The step loop catches per-step exceptions,
+  records `FlowResult.error`/`failed_step_index`, and always finalizes video + closes the
+  browser in a `finally` block regardless of where the loop stopped — a bad selector on step 4
+  of 5 still leaves you with 3 captures and a valid video, not a stack trace and an orphaned
+  `.webm`. `run_flow_tool` surfaces this as a `{captures, error, failed_step_index, ...}` dict so
+  an agent driving Screenwright sees a partial result it can act on, not a failed tool call.

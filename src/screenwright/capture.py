@@ -37,6 +37,8 @@ class FlowResult:
     captures: list[CaptureResult] = field(default_factory=list)
     video_path: Optional[Path] = None
     video_mp4_path: Optional[Path] = None
+    failed_step_index: Optional[int] = None
+    error: Optional[str] = None
 
 
 class FfmpegNotFoundError(RuntimeError):
@@ -116,60 +118,70 @@ async def run_flow(
         else:
             page = await browser.new_page()
 
-        for step in flow.steps:
-            if isinstance(step, NavigateStep):
-                url = step.url
-                if url.startswith("/"):
-                    url = config.base_url.rstrip("/") + url
-                await page.goto(url, wait_until=step.wait_until)
+        for index, step in enumerate(flow.steps):
+            try:
+                if isinstance(step, NavigateStep):
+                    url = step.url
+                    if url.startswith("/"):
+                        url = config.base_url.rstrip("/") + url
+                    await page.goto(url, wait_until=step.wait_until)
 
-            elif isinstance(step, CaptureStep):
-                out = flow_dir / f"{step.name}.png"
-                await _capture_page_or_element(page, out, step.selector)
-                result.captures.append(
-                    CaptureResult(
-                        flow_name=flow.name,
-                        capture_name=step.name,
-                        path=out,
+                elif isinstance(step, CaptureStep):
+                    out = flow_dir / f"{step.name}.png"
+                    await _capture_page_or_element(page, out, step.selector)
+                    result.captures.append(
+                        CaptureResult(
+                            flow_name=flow.name,
+                            capture_name=step.name,
+                            path=out,
+                        )
                     )
-                )
 
-            elif isinstance(step, FillStep):
-                await page.fill(step.selector, step.value)
+                elif isinstance(step, FillStep):
+                    await page.fill(step.selector, step.value)
 
-            elif isinstance(step, ClickStep):
-                await page.click(step.selector)
+                elif isinstance(step, ClickStep):
+                    await page.click(step.selector)
 
-            elif isinstance(step, WaitStep):
-                await asyncio.sleep(step.ms / 1000)
+                elif isinstance(step, WaitStep):
+                    await asyncio.sleep(step.ms / 1000)
 
-            elif isinstance(step, HoverStep):
-                await page.hover(step.selector)
+                elif isinstance(step, HoverStep):
+                    await page.hover(step.selector)
 
-            elif isinstance(step, PressStep):
-                await page.press(step.selector, step.key)
+                elif isinstance(step, PressStep):
+                    await page.press(step.selector, step.key)
 
-            elif isinstance(step, CheckStep):
-                if step.checked:
-                    await page.check(step.selector)
-                else:
-                    await page.uncheck(step.selector)
+                elif isinstance(step, CheckStep):
+                    if step.checked:
+                        await page.check(step.selector)
+                    else:
+                        await page.uncheck(step.selector)
 
-            elif isinstance(step, SelectStep):
-                await page.select_option(step.selector, step.value)
+                elif isinstance(step, SelectStep):
+                    await page.select_option(step.selector, step.value)
+            except Exception as exc:  # noqa: BLE001 - reported on the result, not swallowed
+                result.failed_step_index = index
+                result.error = f"Step {index} ({step.action}) failed: {exc}"
+                break
 
-        if context is not None:
-            video = page.video
-            await page.close()
-            await context.close()
-            if video is not None:
-                raw_path = Path(await video.path())
-                final_path = flow_dir / f"{flow.name}.webm"
-                raw_path.replace(final_path)
-                result.video_path = final_path
-                if flow.record_mp4:
-                    result.video_mp4_path = await _convert_to_mp4(final_path)
-
-        await browser.close()
+        # Always finalize video and close the browser, even if a step above
+        # failed — otherwise a mid-flow error both loses the whole recording
+        # (the .webm only flushes on context.close()) and leaks the browser
+        # process. This runs whether or not the loop above broke early.
+        try:
+            if context is not None:
+                video = page.video
+                await page.close()
+                await context.close()
+                if video is not None:
+                    raw_path = Path(await video.path())
+                    final_path = flow_dir / f"{flow.name}.webm"
+                    raw_path.replace(final_path)
+                    result.video_path = final_path
+                    if flow.record_mp4:
+                        result.video_mp4_path = await _convert_to_mp4(final_path)
+        finally:
+            await browser.close()
 
     return result

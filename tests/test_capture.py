@@ -183,6 +183,97 @@ def test_run_flow_without_recording_has_no_video(tmp_path):
     assert result.video_path is None
 
 
+def test_run_flow_step_failure_returns_partial_result_not_exception(tmp_path):
+    url = _write_page(tmp_path)
+    toml_path = tmp_path / "config.toml"
+    toml_path.write_text(
+        f"""
+        [screenwright]
+        base_url = ""
+
+        [[flows]]
+        name = "flaky"
+
+          [[flows.steps]]
+          action = "navigate"
+          url = "{url}"
+
+          [[flows.steps]]
+          action = "capture"
+          name = "before-failure"
+
+          [[flows.steps]]
+          action = "capture"
+          name = "missing-selector"
+          selector = "#does-not-exist"
+
+          [[flows.steps]]
+          action = "capture"
+          name = "after-failure"
+        """
+    )
+    cfg = load_config(toml_path)
+    flow = cfg.get_flow("flaky")
+    output_root = tmp_path / "output"
+
+    import asyncio
+
+    result = asyncio.run(run_flow(flow, cfg, output_root))
+
+    # The step before the failure succeeded and is preserved, not discarded.
+    assert len(result.captures) == 1
+    assert result.captures[0].capture_name == "before-failure"
+    assert result.captures[0].path.exists()
+
+    # The step after the failure never ran.
+    assert not (output_root / "flaky" / "after-failure.png").exists()
+
+    # Failure is reported on the result, not raised as an exception.
+    assert result.failed_step_index == 2
+    assert "missing-selector" not in [c.capture_name for c in result.captures]
+    assert result.error is not None
+    assert "Selector not found" in result.error
+
+
+def test_run_flow_with_recording_finalizes_video_on_step_failure(tmp_path):
+    url = _write_page(tmp_path)
+    toml_path = tmp_path / "config.toml"
+    toml_path.write_text(
+        f"""
+        [screenwright]
+        base_url = ""
+
+        [[flows]]
+        name = "flaky-recorded"
+        record = true
+
+          [[flows.steps]]
+          action = "navigate"
+          url = "{url}"
+
+          [[flows.steps]]
+          action = "capture"
+          name = "missing-selector"
+          selector = "#does-not-exist"
+        """
+    )
+    cfg = load_config(toml_path)
+    flow = cfg.get_flow("flaky-recorded")
+    output_root = tmp_path / "output"
+
+    import asyncio
+
+    result = asyncio.run(run_flow(flow, cfg, output_root))
+
+    assert result.error is not None
+    # The video must still be flushed to disk even though a step failed —
+    # Playwright only finalizes the file on context.close(), so skipping
+    # cleanup on the error path would silently lose the whole recording.
+    assert result.video_path is not None
+    assert result.video_path.exists()
+    assert result.video_path.stat().st_size > 0
+
+
 def test_run_flow_check_and_select_steps(tmp_path):
     url = _write_page(tmp_path)
     toml_path = tmp_path / "config.toml"

@@ -15,13 +15,23 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       the output root. Fix: validate names against `^[A-Za-z0-9._-]+$` (reject, don't silently
       sanitize) in the Pydantic models + MCP tool bodies; resolve the final path and assert
       `is_relative_to(out_root.resolve())`. *(fixed 2026-08-24, this session)*
-- [ ] **#1 [high] `run_flow`'s step loop has no error handling** — `capture.py:119-173`. A step
+- [x] **#1 [high] `run_flow`'s step loop has no error handling** — `capture.py:119-173`. A step
       raising mid-flow skips video finalization (orphaned random-named `.webm`) and discards
       already-taken captures (exception propagates past `write_flow_output` in `cli.py:77`). Fix:
       wrap the loop in try/finally; in finally, close page/context and finalize video regardless;
       return a partial `FlowResult` with a `failed_step`/`error` field so CLI/MCP can report
       "3 of 5 captures succeeded, step 4 failed: selector X not found" instead of a stack trace.
       This is also **missing-feature #1** below — same fix serves both.
+      *(fixed 2026-08-24: `FlowResult` gained `failed_step_index`/`error`; the step loop now
+      catches per-step exceptions and always finalizes video + closes the browser in a
+      try/finally; `cli.py` prints partial-failure flows distinctly; `run_flow_tool` now returns
+      a `{captures, video_path, video_mp4_path, error, failed_step_index}` dict instead of a bare
+      path list — a breaking MCP tool return-type change, but the package has no real external
+      callers yet, so this was the right time to fix the contract rather than carry the old
+      shape forward. `docs/MCP_TOOLS.md` and the wiki's MCP-Tools-Reference page updated to
+      match. Tests: `test_run_flow_step_failure_returns_partial_result_not_exception`,
+      `test_run_flow_with_recording_finalizes_video_on_step_failure`,
+      `test_run_flow_tool_returns_partial_result_dict_on_step_failure`.)*
 - [ ] **#3 [medium-high] Vision-model output written unescaped into public markdown** —
       `output.py:29-34`. `description` (model output derived from attacker-controlled page
       content) goes straight into a markdown table cell with no escaping; `capture_name` isn't

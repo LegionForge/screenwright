@@ -115,7 +115,7 @@ async def run_flow_tool(
     flow_name: str,
     config_path: Optional[str] = None,
     output_dir: Optional[str] = None,
-) -> list[str]:
+) -> dict:
     """
     Execute a named flow from a TOML config file.
 
@@ -125,8 +125,13 @@ async def run_flow_tool(
         output_dir: Override the output directory from the config.
 
     Returns:
-        List of absolute paths to all captured PNG files, followed by the .webm
-        recording path if the flow has `record = true` set.
+        A dict: {"captures": [absolute PNG paths], "video_path": str | None,
+        "video_mp4_path": str | None, "error": str | None,
+        "failed_step_index": int | None}. If a step fails mid-flow, `captures`
+        still contains everything captured before the failure — this call
+        does not raise for a mid-flow step failure, only for a missing flow
+        name or a config error, so a partial result is always visible rather
+        than lost behind an exception.
     """
     cfg = _resolve_config(config_path)
     flow_def = cfg.get_flow(flow_name)
@@ -136,10 +141,13 @@ async def run_flow_tool(
 
     out_root = _resolve_output(cfg, output_dir)
     result: FlowResult = await run_flow(flow_def, cfg, out_root)
-    paths = [str(c.path) for c in result.captures]
-    if result.video_path is not None:
-        paths.append(str(result.video_path))
-    return paths
+    return {
+        "captures": [str(c.path) for c in result.captures],
+        "video_path": str(result.video_path) if result.video_path else None,
+        "video_mp4_path": str(result.video_mp4_path) if result.video_mp4_path else None,
+        "error": result.error,
+        "failed_step_index": result.failed_step_index,
+    }
 
 
 @mcp.tool()

@@ -76,20 +76,35 @@ def run(
 
             write_flow_output(result, output_root)
             all_results.append(result)
-            progress.update(
-                task,
-                completed=True,
-                description=f"[green]Done:[/green] {flow_def.name}",
-            )
+            if result.error:
+                progress.update(
+                    task,
+                    completed=True,
+                    description=f"[yellow]Partial:[/yellow] {flow_def.name} — {result.error}",
+                )
+            else:
+                progress.update(
+                    task,
+                    completed=True,
+                    description=f"[green]Done:[/green] {flow_def.name}",
+                )
 
     write_root_readme(all_results, output_root)
 
     total_captures = sum(len(r.captures) for r in all_results)
     total_videos = sum(1 for r in all_results if r.video_path is not None)
+    failed_flows = [r for r in all_results if r.error]
     console.print(
         f"\n[green]Captured {total_captures} screenshot(s) across "
         f"{len(all_results)} flow(s).[/green]"
     )
+    if failed_flows:
+        console.print(
+            f"[yellow]{len(failed_flows)} flow(s) stopped early "
+            "(partial output was still written):[/yellow]"
+        )
+        for r in failed_flows:
+            console.print(f"  [yellow]•[/yellow] {r.flow_name}: {r.error}")
     if total_videos:
         console.print(f"[green]Recorded {total_videos} video(s).[/green]")
     console.print(f"Output: [bold]{output_root}[/bold]")

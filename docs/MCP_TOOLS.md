@@ -69,11 +69,26 @@ Execute a named flow from a TOML config — the multi-step, potentially video-re
 | `config_path` | string | no | Path to TOML config. Falls back to `SCREENWRIGHT_CONFIG` |
 | `output_dir` | string | no | Override the config's `output_dir` |
 
-**Returns:** `list[string]` — absolute paths to every captured PNG, followed by the `.webm` (and
-`.mp4`, if `record_mp4 = true`) recording path if the flow has `record = true` set.
+**Returns:** a dict:
+```json
+{
+  "captures": ["<absolute PNG path>", "..."],
+  "video_path": "<absolute .webm path> | null",
+  "video_mp4_path": "<absolute .mp4 path> | null",
+  "error": "<string> | null",
+  "failed_step_index": "<int> | null"
+}
+```
 
-**Raises:** `ValueError` if `flow_name` isn't found in the loaded config (message includes the
-list of available flow names).
+If a step fails mid-flow, this does **not** raise — `captures` still contains everything
+captured before the failure, `error`/`failed_step_index` describe what went wrong, and any
+in-progress video recording is still finalized (Playwright only flushes a `.webm` on context
+close, so a naive implementation would lose the whole recording on a mid-flow error — this one
+doesn't). An agent should treat a non-null `error` as "partial success, here's what happened,"
+not as a failed tool call.
+
+**Raises:** `ValueError` only for a missing `flow_name` (message includes the list of available
+flow names) or a config-loading error — never for a step failing during the flow itself.
 
 ## `list_flows`
 
