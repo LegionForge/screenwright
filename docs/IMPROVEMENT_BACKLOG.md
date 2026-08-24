@@ -328,6 +328,26 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       that the per-field fallback applies fresh to each variant, not once at the end of the
       step.)*
 
+- [x] **#23 [low-medium, found 2026-08-24 by fresh review, not in the original Opus pass]
+      `docs/API_REFERENCE.md` had gone stale relative to ~10 commits' worth of real API
+      changes this session** — it never got a single edit across the whole session's fixes,
+      while `README.md`/`docs/ARCHITECTURE.md`/the wiki were kept in sync per-commit. Missing:
+      `capture_single_url`'s `timeout_ms`/`viewport_width`/`viewport_height`/`animations`
+      params (added earlier this session, before this backlog file's tracking began);
+      `FlowResult.failed_step_index`/`.error` entirely undocumented, despite being the central
+      contract every crash-on-error-path fix this session relies on; no mention that `run_flow`
+      never raises for a step/setup/finalize failure (the exact guarantee findings #1, #14,
+      #16, #18 established); no mention of the duplicate flow/capture/variant name validation
+      (#20, #21) or the partial-flow-failure docs banner/Status column (#19). For a Python
+      library reference specifically, an out-of-sync contract description is worse than no
+      documentation — it actively misleads a caller into wrapping `run_flow` in try/except it
+      doesn't need, or missing that `.error` is the thing to check. *(fixed 2026-08-24: synced
+      every section against the actual current source — `capture.py`, `output.py`,
+      `config.py` — rather than assuming prior doc text was still accurate. Wiki's
+      Python-API-Reference page synced to match. No code changed; verified via a full
+      `pytest`/`ruff check`/`ruff format --check` pass to confirm the docs-only change didn't
+      regress anything.)*
+
 ## Test coverage gaps
 
 - [x] `_describe_anthropic`/`_describe_openai` mocked and tested (2026-08-24, alongside #6).
