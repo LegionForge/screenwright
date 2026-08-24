@@ -56,6 +56,13 @@ class CaptureStep(BaseModel):
     an agent consumer: the semantic tree is cheaper and more reliable to
     reason about than a vision model's guess at a PNG.
     """
+    pdf: bool = False
+    """When true, also save the whole page as `{name}.pdf` alongside the PNG
+    (Playwright's `page.pdf()` — Chromium-only, whole-page like
+    `accessibility_snapshot`, not scoped to `selector`). Useful for
+    print-formatted documentation output or archiving a page's full
+    content beyond the viewport, not just what a screenshot shows.
+    """
 
     _validate_name = field_validator("name")(validate_safe_name)
 

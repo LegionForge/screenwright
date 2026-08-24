@@ -657,6 +657,75 @@ def test_run_flow_omits_accessibility_snapshot_by_default(tmp_path):
     assert not (output_root / "no-a11y" / "shot.aria.yaml").exists()
 
 
+def test_run_flow_writes_pdf_when_requested(tmp_path):
+    url = _write_page(tmp_path)
+    toml_path = tmp_path / "config.toml"
+    toml_path.write_text(
+        f"""
+        [screenwright]
+        base_url = ""
+
+        [[flows]]
+        name = "pdf-flow"
+
+          [[flows.steps]]
+          action = "navigate"
+          url = "{url}"
+
+          [[flows.steps]]
+          action = "capture"
+          name = "shot"
+          pdf = true
+        """
+    )
+    cfg = load_config(toml_path)
+    flow = cfg.get_flow("pdf-flow")
+    output_root = tmp_path / "output"
+
+    import asyncio
+
+    result = asyncio.run(run_flow(flow, cfg, output_root))
+
+    assert result.error is None
+    capture = result.captures[0]
+    assert capture.pdf_path is not None
+    assert capture.pdf_path == output_root / "pdf-flow" / "shot.pdf"
+    assert capture.pdf_path.exists()
+    assert capture.pdf_path.read_bytes().startswith(b"%PDF-")
+
+
+def test_run_flow_omits_pdf_by_default(tmp_path):
+    url = _write_page(tmp_path)
+    toml_path = tmp_path / "config.toml"
+    toml_path.write_text(
+        f"""
+        [screenwright]
+        base_url = ""
+
+        [[flows]]
+        name = "no-pdf"
+
+          [[flows.steps]]
+          action = "navigate"
+          url = "{url}"
+
+          [[flows.steps]]
+          action = "capture"
+          name = "shot"
+        """
+    )
+    cfg = load_config(toml_path)
+    flow = cfg.get_flow("no-pdf")
+    output_root = tmp_path / "output"
+
+    import asyncio
+
+    result = asyncio.run(run_flow(flow, cfg, output_root))
+
+    assert result.captures[0].pdf_path is None
+    assert not (output_root / "no-pdf" / "shot.pdf").exists()
+
+
 def test_run_flow_check_and_select_steps(tmp_path):
     url = _write_page(tmp_path)
     toml_path = tmp_path / "config.toml"

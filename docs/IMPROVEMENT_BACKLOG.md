@@ -224,7 +224,11 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
    most differentiated addition for a docs pipeline specifically.
 8. **Parallel flow execution** — `cli.py` runs flows serially with a fresh event loop each; one
    browser + bounded `asyncio.gather` over contexts would cut a multi-flow build several-fold.
-9. **PDF export / HAR capture** — lower priority, not core to the MCP+vision differentiator.
+9. **PDF export** *(shipped 2026-08-24)* / HAR capture (not done). `CaptureStep.pdf` calls
+   `page.pdf()` — Chromium-only, whole-page like `accessibility_snapshot` (not scoped to
+   `selector`, same underlying reason: not available on the `ElementHandle` this step's
+   selector path uses). 5 new tests, README/API_REFERENCE/ARCHITECTURE/wiki updated. HAR capture
+   still not implemented — lower priority, not core to the MCP+vision differentiator.
 10. **`describe_flow` MCP tool** *(shipped 2026-08-24)* — whole index.md + metadata bundle in
     one call instead of N `describe_screenshot` round-trips. Pure filesystem read (no
     Playwright, no changes to the core capture path) — reads what `run_flow_tool` +

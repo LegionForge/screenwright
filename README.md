@@ -293,7 +293,7 @@ Set on a flow itself, not on individual steps:
 | Action | Required fields | Optional fields | Description |
 |--------|----------------|-----------------|-------------|
 | `navigate` | `url` | `wait_until` (`load` default, or `domcontentloaded`/`networkidle`/`commit`) | Navigate to URL (relative to `base_url` if starts with `/`). Use `domcontentloaded` for apps with persistent websocket/SSE connections (live dashboards, log viewers) — `networkidle` will time out on them since the connection never goes idle. |
-| `capture` | `name` | `selector`, `accessibility_snapshot` (bool, default `false`) | Screenshot the page or a CSS-selected element. `accessibility_snapshot` also writes the *whole page's* accessibility tree to `{name}.aria.yaml` (always whole-page, not scoped to `selector`) — a semantic tree an agent can reason about directly, cheaper and more reliable than a vision-model guess at a PNG. |
+| `capture` | `name` | `selector`, `accessibility_snapshot` (bool, default `false`), `pdf` (bool, default `false`) | Screenshot the page or a CSS-selected element. `accessibility_snapshot` also writes the *whole page's* accessibility tree to `{name}.aria.yaml` (always whole-page, not scoped to `selector`) — a semantic tree an agent can reason about directly, cheaper and more reliable than a vision-model guess at a PNG. `pdf` also saves the *whole page* as `{name}.pdf` (also always whole-page, Chromium-only). |
 | `fill` | `selector`, `value` | `secret` (bool, default `false`) | Fill an input field. `value` may be `${ENV_VAR}` to pull from the environment instead of a literal — required (not optional) when `secret = true`, so a credential can't accidentally end up committed as plaintext next to the flow that uses it. |
 | `click` | `selector` | — | Click an element |
 | `wait` | `ms` | — | Wait N milliseconds |
@@ -450,6 +450,24 @@ than the screenshot itself.
 
 ---
 
+## PDF Export
+
+Set `pdf = true` on a `capture` step to also save the page as a PDF:
+
+```toml
+[[flows.steps]]
+action = "capture"
+name   = "invoice"
+pdf    = true
+```
+
+Produces `{flow_name}/invoice.pdf` alongside the PNG. Like `accessibility_snapshot`, this is
+always for the **whole page**, not scoped to `selector` — Playwright's `page.pdf()` is a
+page-level, Chromium-only API. Useful for print-formatted documentation output, or archiving a
+page's full content beyond what fits in a viewport screenshot.
+
+---
+
 ## Output Format
 
 ### `{flow_name}/{capture_name}.png`
@@ -457,6 +475,9 @@ Full-page or element screenshot.
 
 ### `{flow_name}/{capture_name}.aria.yaml` *(when `accessibility_snapshot = true`)*
 The page's accessibility tree — see [Accessibility Snapshots](#accessibility-snapshots).
+
+### `{flow_name}/{capture_name}.pdf` *(when `pdf = true`)*
+The whole page as PDF — see [PDF Export](#pdf-export).
 
 ### `{flow_name}/{capture_name}.json` *(when `structured_metadata = true`)*
 ```json

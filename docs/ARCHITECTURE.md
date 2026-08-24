@@ -94,3 +94,6 @@ sequenceDiagram
   versus a vision model's paid, approximate guess at the same PNG. Always whole-page: Playwright
   exposes `aria_snapshot()` on `Page`/`Locator`, not on the `ElementHandle` this step's
   selector-scoped screenshot path uses.
+- **PDF export follows the same shape, for the same reason.** `CaptureStep.pdf` calls
+  `page.pdf()` — also whole-page-only, also Chromium-only — so it's not scoped to `selector`
+  either, matching `accessibility_snapshot`'s constraint rather than pretending otherwise.

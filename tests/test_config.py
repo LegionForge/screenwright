@@ -245,3 +245,11 @@ def test_capture_step_accessibility_snapshot_defaults_to_false():
 def test_capture_step_accepts_accessibility_snapshot():
     step = CaptureStep(action="capture", name="shot", accessibility_snapshot=True)
     assert step.accessibility_snapshot is True
+
+
+def test_capture_step_pdf_defaults_to_false():
+    assert CaptureStep(action="capture", name="shot").pdf is False
+
+
+def test_capture_step_accepts_pdf():
+    assert CaptureStep(action="capture", name="shot", pdf=True).pdf is True

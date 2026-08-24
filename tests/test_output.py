@@ -73,6 +73,17 @@ def test_write_flow_output_links_accessibility_snapshot(tmp_path):
     assert "[a11y](homepage-full.aria.yaml)" in content
 
 
+def test_write_flow_output_links_pdf(tmp_path):
+    capture = _make_capture(tmp_path, "homepage", "homepage-full", metadata=None)
+    capture.pdf_path = tmp_path / "homepage" / "homepage-full.pdf"
+
+    result = FlowResult(flow_name="homepage", captures=[capture])
+    index_path = write_flow_output(result, tmp_path)
+
+    content = index_path.read_text()
+    assert "[pdf](homepage-full.pdf)" in content
+
+
 def test_escape_markdown_cell_strips_html_tags():
     assert _escape_markdown_cell('a <img src=x onerror="alert(1)"> b') == "a  b"
 
