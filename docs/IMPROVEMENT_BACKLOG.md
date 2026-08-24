@@ -118,6 +118,21 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       lockfile/hash-pinning in CI, or upper bounds on playwright — left as-is since neither is
       what actually broke CI this session (that was unpinned `mcp`, already fixed separately);
       revisit if it becomes a real pain point rather than pre-emptively.)*
+      *(fully closed 2026-08-24, later same session: a fresh dependency scan found `anthropic`
+      had just released 1.0.0 — a live instance of the exact same unbounded-major-version risk
+      that broke CI with `mcp` 2.0.0, sitting unaddressed. Checked structural compatibility
+      before pinning (not blindly): `Message.content`/`stop_reason` and `TextBlock.text`/`type`
+      all still present in 1.0.0, confirmed by installing it into the dev venv and running the
+      full suite for real, not just static inspection. Pinned `anthropic<2.0.0`; also pinned
+      `openai<4.0.0` (already silently on 3.x in this project's own installs without issue —
+      just formalizing what was already true). Added 2 new tests
+      (`test_anthropic_response_shape_matches_our_assumptions`,
+      `test_openai_response_shape_matches_our_assumptions`) that check the real installed SDK's
+      type shapes directly — the existing mocked describe tests use fake objects and would pass
+      even if the real SDK's shape changed, so these are the actual regression guard for a
+      future pin bump. `ollama` left unbounded — no 1.0 release yet, and zero real test coverage
+      exercises it currently (separate pre-existing gap), so a version bound there has no
+      practical enforcement value yet.)*
 - [x] **#9 [low-medium] `_resolve_output` string-compares against the default as a sentinel** —
       `mcp_server.py:37`. A user who deliberately sets `output_dir = "docs/screenshots"` (the
       default value) gets silently redirected to `/tmp/screenwright-output`. Fix: use

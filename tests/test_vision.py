@@ -284,3 +284,30 @@ def test_import_provider_sdk_returns_module_when_installed():
 def test_import_provider_sdk_raises_actionable_error_when_missing():
     with pytest.raises(ImportError, match=r"pip install 'screenwright\[some-extra\]'"):
         _import_provider_sdk("definitely_not_a_real_package_xyz", "some-extra")
+
+
+def test_anthropic_response_shape_matches_our_assumptions():
+    # Guards the structural assumptions _describe_anthropic/_first_text_block
+    # rely on. The mocked describe_anthropic tests below use fake
+    # SimpleNamespace objects, so they'd pass even if the real SDK's actual
+    # types changed shape — this checks the real installed SDK directly.
+    # If this starts failing after bumping the anthropic pin in
+    # pyproject.toml, that's the signal to check for a real breaking change
+    # before raising the bound further, not just widen it.
+    from anthropic.types import Message, TextBlock
+
+    assert "content" in Message.model_fields
+    assert "stop_reason" in Message.model_fields
+    assert "type" in TextBlock.model_fields
+    assert "text" in TextBlock.model_fields
+
+
+def test_openai_response_shape_matches_our_assumptions():
+    # Same guard as above, for _describe_openai's assumptions about
+    # choice.message.content and choice.finish_reason.
+    from openai.types.chat import ChatCompletion
+    from openai.types.chat.chat_completion import Choice
+
+    assert "message" in Choice.model_fields
+    assert "finish_reason" in Choice.model_fields
+    assert "choices" in ChatCompletion.model_fields

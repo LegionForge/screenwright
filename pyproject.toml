@@ -28,8 +28,16 @@ screenwright-mcp = "screenwright.mcp_server:main"
 # both cloud SDKs too. `describe()` still dispatches on `provider` at
 # runtime and raises a clear "pip install screenwright[x]" ImportError if
 # the matching extra isn't installed, rather than failing at import time.
-anthropic = ["anthropic>=0.30.0"]
-openai = ["openai>=1.0.0"]
+# Upper bounds pin against the exact failure mode that broke CI with mcp
+# 2.0.0 this session (a breaking major release silently resolved by an
+# unbounded >= constraint). anthropic 1.0.0 (just released) was checked
+# structurally compatible before setting its bound at <2.0.0 — Message.
+# content/stop_reason and TextBlock.text/type all still present. openai's
+# bound reflects 3.x, already in active use in this project's own dev/CI
+# installs without issue. Revisit each bound deliberately when it needs
+# raising, rather than letting a future major version resolve silently.
+anthropic = ["anthropic>=0.30.0,<2.0.0"]
+openai = ["openai>=1.0.0,<4.0.0"]
 ollama = ["ollama>=0.1.0"]
 vision = ["screenwright[anthropic,openai,ollama]"]
 dev = ["ruff>=0.3.0", "pytest>=8.0.0", "pytest-asyncio>=0.23.0", "screenwright[anthropic,openai]"]
