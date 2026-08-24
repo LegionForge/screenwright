@@ -150,8 +150,19 @@ the tool's schema, so this is a fallback for a client that ignores it).
 
 ## Error handling for agents
 
-None of the five tools currently retry internally — a failed navigation, a bad selector, a
-missing API key, or an unreachable vision provider surfaces as a raised exception that the MCP
-client displays as a tool error. An agent driving Screenwright should treat a tool-call failure
-as informative (bad selector, wrong flow name, etc.) rather than transient, and adjust the next
-call rather than blindly retrying the same arguments.
+Transient failures already retry internally, so an agent shouldn't blindly re-issue the same
+call hoping a retry helps — that's already handled. `capture_url`/`capture_element`/
+`run_flow_tool` retry a navigation that fails with a Playwright timeout or a `net::ERR_*`
+network error up to 2x with exponential backoff before surfacing anything; `describe_screenshot`
+(and the vision-describe step inside `run_flow_tool`) similarly retries a transient provider
+failure (429/5xx, timeout) up to 2x. See [Architecture](ARCHITECTURE.md) for the exact retry
+policy.
+
+What isn't retried, and what an agent should treat as a real, informative failure rather than
+transient — a bad `selector`, a missing/invalid API key, a wrong `flow_name`, or a navigation/
+vision failure that didn't clear after the internal retries: `capture_url`/`capture_element`/
+`describe_screenshot` surface this as a raised exception the MCP client displays as a tool
+error. `run_flow_tool` is the one exception — it never raises for a step failing mid-flow
+(navigation, vision, or otherwise); it returns a non-null `error` field instead, alongside
+whatever was already captured. An agent should adjust the next call (a different selector, a
+corrected flow name) rather than retry the same arguments.

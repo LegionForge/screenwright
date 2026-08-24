@@ -364,6 +364,22 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       itself doesn't enforce type hints on a direct call. `docs/MCP_TOOLS.md` and the wiki's
       MCP-Tools-Reference page updated.)*
 
+- [x] **#25 [low-medium, found 2026-08-24 by fresh review, not in the original Opus pass]
+      `docs/MCP_TOOLS.md`'s "Error handling for agents" section claimed no tool retries
+      internally** — flatly false after this session's navigation-retry (#6) and pre-existing
+      vision-retry work: `capture_url`/`capture_element`/`run_flow_tool` all retry a transient
+      navigation failure up to 2x with backoff, and `describe_screenshot`/`run_flow_tool`'s
+      vision-describe step retry a transient provider failure up to 2x, before any of it
+      surfaces to the calling agent. Telling an agent "nothing retries, treat every failure as
+      non-transient" when the opposite is true either wastes the agent's own retry attempts on
+      failures that were already exhausted internally, or leads it to under-retry a case that
+      genuinely would benefit from a different argument. Also said "five tools" when there are
+      six. *(fixed 2026-08-24: rewrote the section to describe what actually retries (and how
+      much) versus what surfaces immediately as a real failure, and to be explicit that
+      `run_flow_tool` alone never raises for this class of failure — it returns `error` instead.
+      Wiki's MCP-Tools-Reference page synced. No code changed — this is the same "docs went
+      stale relative to real behavior" class of gap as #23, just in a different file.)*
+
 ## Test coverage gaps
 
 - [x] `_describe_anthropic`/`_describe_openai` mocked and tested (2026-08-24, alongside #6).
