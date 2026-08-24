@@ -1,0 +1,49 @@
+# Consumes LegionForge/dev-rig's shared security workflows so Screenwright
+# gets the same SAST/secrets/SBOM/dependency-audit/supply-chain coverage as
+# other LegionForge projects. dev-rig has no tagged releases yet (git tag is
+# empty as of this writing), so this pins to a specific commit SHA rather
+# than `@main` — re-pin to a released tag once dev-rig cuts one.
+name: Security (dev-rig)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "30 6 * * 1" # weekly, Monday 06:30 UTC
+
+permissions:
+  contents: read
+
+jobs:
+  secrets:
+    name: Secret Scanning
+    uses: LegionForge/dev-rig/.github/workflows/secrets.yml@3456e9b982c8c840afc5af7b95c7952fd082af28
+
+  sast:
+    name: SAST
+    uses: LegionForge/dev-rig/.github/workflows/sast.yml@3456e9b982c8c840afc5af7b95c7952fd082af28
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    with:
+      source-dirs: "src/screenwright"
+      semgrep-configs: "p/python"
+
+  sbom:
+    name: SBOM
+    uses: LegionForge/dev-rig/.github/workflows/sbom.yml@3456e9b982c8c840afc5af7b95c7952fd082af28
+    with:
+      python-version: "3.11"
+
+  audit:
+    name: Dependency Audit
+    uses: LegionForge/dev-rig/.github/workflows/audit.yml@3456e9b982c8c840afc5af7b95c7952fd082af28
+    with:
+      python-version: "3.11"
+
+  supply-chain:
+    name: Supply Chain
+    uses: LegionForge/dev-rig/.github/workflows/supply-chain.yml@3456e9b982c8c840afc5af7b95c7952fd082af28

@@ -1,0 +1,97 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "Screenwright: getting started",
+  "description": "A guided walk through Screenwright's core: TOML flows, the Playwright capture engine, the pluggable vision layer, and the two entry points (CLI + MCP server). Requires the CodeTour VS Code extension.",
+  "steps": [
+    {
+      "title": "Start here: what a flow looks like",
+      "file": "examples/basic.toml",
+      "line": 1,
+      "description": "A flow is a named sequence of steps against a base_url. `navigate`, `capture`, `fill`, `click`, `wait`, `hover`, `press`, `check`, and `select` are the available step types — see config.py's Step union for the full, validated list."
+    },
+    {
+      "title": "How a flow is parsed",
+      "file": "src/screenwright/config.py",
+      "line": 70,
+      "description": "`Step` is a Pydantic discriminated union keyed on the `action` field — this is what gives you a clear validation error (not a runtime AttributeError) when a TOML flow has a typo'd or missing field."
+    },
+    {
+      "title": "Flow-level options",
+      "file": "src/screenwright/config.py",
+      "line": 86,
+      "description": "Video recording (`record`, `record_width/height`, `record_mp4`) lives on `Flow`, not on individual steps, because Playwright ties video capture to a whole BrowserContext — it can't be started/stopped mid-flow. See capture.py's run_flow for how that constraint shapes the browser lifecycle."
+    },
+    {
+      "title": "TOML → config object",
+      "file": "src/screenwright/config.py",
+      "line": 112,
+      "description": "load_config() is the only place that touches the filesystem for config — everything downstream works with validated ScreenwrightConfig/Flow/Step objects, never raw dicts."
+    },
+    {
+      "title": "The capture engine: run_flow",
+      "file": "src/screenwright/capture.py",
+      "line": 97,
+      "description": "This is the heart of Screenwright. One Playwright Browser is launched per flow; if `flow.record` is set, a recording BrowserContext is created instead of a bare page. Every step type from config.py has a branch here that calls the matching Playwright Page API."
+    },
+    {
+      "title": "Video finalization",
+      "file": "src/screenwright/capture.py",
+      "line": 112,
+      "description": "record_video_dir points Playwright at the flow's output directory; the actual .webm file only gets a real, discoverable path once the context is closed (see the `if context is not None:` block later in run_flow)."
+    },
+    {
+      "title": "Optional mp4 conversion",
+      "file": "src/screenwright/capture.py",
+      "line": 46,
+      "description": "record_mp4 shells out to ffmpeg the same way shot-scraper's --mp4 flag does. Raises FfmpegNotFoundError with an install hint if ffmpeg isn't on PATH, rather than failing silently or leaving a half-converted file."
+    },
+    {
+      "title": "One-shot capture (used by MCP tools)",
+      "file": "src/screenwright/capture.py",
+      "line": 82,
+      "description": "capture_single_url is the simpler sibling of run_flow — no flow definition needed, just a URL and optional selector. This is what the MCP server's capture_url/capture_element tools call directly."
+    },
+    {
+      "title": "Vision layer: one interface, three providers",
+      "file": "src/screenwright/vision.py",
+      "line": 140,
+      "description": "describe() dispatches to _describe_anthropic / _describe_openai / _describe_ollama based on VisionConfig.provider. All three return the same ScreenshotMetadata shape, so swapping providers never touches downstream code."
+    },
+    {
+      "title": "Prompt building",
+      "file": "src/screenwright/vision.py",
+      "line": 34,
+      "description": "structured_metadata=true appends a fixed JSON-shape instruction to whatever prompt you configured — this is what makes describe() return machine-parseable components/state/accessibility_notes instead of just prose."
+    },
+    {
+      "title": "Graceful degradation on bad model output",
+      "file": "src/screenwright/vision.py",
+      "line": 41,
+      "description": "Small local vision models sometimes don't follow the JSON instruction (or return nothing at all). _parse_response falls back to treating the raw text as the description rather than raising — a flaky vision call should never crash a capture run."
+    },
+    {
+      "title": "Turning results into docs",
+      "file": "src/screenwright/output.py",
+      "line": 63,
+      "description": "write_flow_output writes the {name}.json metadata sidecars and the flow's index.md. This is the last step before a flow's output is ready to commit into a docs/ folder."
+    },
+    {
+      "title": "Entry point 1: the CLI",
+      "file": "src/screenwright/cli.py",
+      "line": 29,
+      "description": "The `run` command is the orchestration glue: load_config → run_flow per flow → describe() each capture if vision_describe is on → write_flow_output → write_root_readme. Nothing here talks to Playwright or the vision API directly."
+    },
+    {
+      "title": "Entry point 2: the MCP server",
+      "file": "src/screenwright/mcp_server.py",
+      "line": 14,
+      "description": "A FastMCP stdio server — standard enough that any MCP-compliant client (Claude Desktop/Code, Codex CLI, VS Code, Kilo Code, OpenCode, ...) can drive it identically. See the README's MCP Server Setup section for per-client config."
+    },
+    {
+      "title": "The five MCP tools",
+      "file": "src/screenwright/mcp_server.py",
+      "line": 42,
+      "description": "capture_url, capture_element, run_flow_tool, list_flows, describe_screenshot. Each is a thin wrapper around capture.py/vision.py — an agent driving Screenwright over MCP gets the exact same behavior as the CLI."
+    }
+  ]
+}

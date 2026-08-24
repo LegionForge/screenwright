@@ -1,6 +1,12 @@
+<p align="center">
+  <a href="https://legionforge.org">
+    <img src="https://assets.legionforge.org/current/logos/legionforge-logo-color.svg" alt="LegionForge" height="64">
+  </a>
+</p>
+
 # Screenwright
 
-A focused documentation screenshot pipeline with an MCP server interface. Screenwright sits on top of Playwright (Python) and a vision model to capture UI screenshots at critical flow points and produce GitHub-documentation-ready output: organized PNGs, structured metadata JSON, and auto-generated markdown with descriptions and alt text.
+A focused documentation screenshot pipeline with an MCP server interface, built by [LegionForge](https://legionforge.org). Screenwright sits on top of Playwright (Python) and a vision model to capture UI screenshots at critical flow points and produce GitHub-documentation-ready output: organized PNGs, structured metadata JSON, and auto-generated markdown with descriptions and alt text.
 
 ---
 
@@ -144,14 +150,65 @@ args = []
 SCREENWRIGHT_CONFIG = "./screenwright.toml"
 ```
 
-Screenwright's MCP server is a standard stdio server built on the `mcp` Python SDK — it isn't
-Claude-specific, so any MCP-compliant client (Claude Desktop, Claude Code, Codex CLI, others)
-can drive it the same way. Only the *vision* layer cares which AI vendor you're using — set
-`provider = "openai"` in `[vision]` (with `OPENAI_API_KEY` set) if you'd rather keep the whole
-pipeline on OpenAI when driving Screenwright from Codex.
+For **VS Code** (native MCP support) or **VSCodium**, add to `.vscode/mcp.json` in your
+workspace:
 
-MCP config file locations and formats can change between client versions — check your client's
-current docs if the above doesn't connect.
+```json
+{
+  "servers": {
+    "screenwright": {
+      "type": "stdio",
+      "command": "screenwright-mcp",
+      "env": {
+        "SCREENWRIGHT_CONFIG": "${workspaceFolder}/screenwright.toml"
+      }
+    }
+  }
+}
+```
+
+For **Kilo Code** (VS Code extension), add to its MCP settings (Kilo Code panel → MCP Servers →
+Edit Global/Project MCP, or the extension's `mcp_settings.json`) — same shape as Claude
+Desktop's:
+
+```json
+{
+  "mcpServers": {
+    "screenwright": {
+      "command": "screenwright-mcp",
+      "env": {
+        "SCREENWRIGHT_CONFIG": "/path/to/your/config.toml"
+      }
+    }
+  }
+}
+```
+
+For **OpenCode**, add to `opencode.json` (project root or `~/.config/opencode/opencode.json`):
+
+```json
+{
+  "mcp": {
+    "screenwright": {
+      "type": "local",
+      "command": ["screenwright-mcp"],
+      "environment": {
+        "SCREENWRIGHT_CONFIG": "./screenwright.toml"
+      }
+    }
+  }
+}
+```
+
+Screenwright's MCP server is a standard stdio server built on the `mcp` Python SDK — it isn't
+Claude-specific, so any MCP-compliant client can drive it the same way; only the config file's
+name/shape differs per client. Only the *vision* layer cares which AI vendor you're using — set
+`provider = "openai"` in `[vision]` (with `OPENAI_API_KEY` set) if you'd rather keep the whole
+pipeline on OpenAI, or `provider = "ollama"` to keep it fully local regardless of which client
+is driving Screenwright.
+
+MCP config file locations and formats change between client versions faster than this README
+does — check your client's current docs if one of the snippets above doesn't connect.
 
 ### MCP Tools
 
@@ -356,3 +413,14 @@ pip install -e ".[dev]"
 playwright install chromium
 pytest
 ```
+
+---
+
+## Support LegionForge
+
+Screenwright is free and MIT-licensed. If it's useful to you and you'd like to support ongoing
+LegionForge open-source work:
+
+- [legionforge.org/donations](https://legionforge.org/donations/)
+- [Ko-fi](https://ko-fi.com/jp_cruz)
+- [Patreon](https://patreon.com/cw/JPCruz)
