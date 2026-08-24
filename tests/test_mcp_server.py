@@ -8,10 +8,26 @@ from screenwright.config import ScreenwrightConfig
 from screenwright.mcp_server import (
     _DEFAULT_OUTPUT,
     _resolve_capture_path,
+    _resolve_config,
     _resolve_output,
+    capture_element,
+    capture_url,
     describe_screenshot,
+    list_flows,
     run_flow_tool,
 )
+
+_HTML = """
+<!doctype html>
+<html><head><title>Test</title></head>
+<body><h1>Hello</h1><div id="content">content</div></body></html>
+"""
+
+
+def _write_page(tmp_path):
+    page = tmp_path / "page.html"
+    page.write_text(_HTML)
+    return f"file://{page}"
 
 
 def test_resolve_capture_path_accepts_safe_name(tmp_path):
@@ -153,3 +169,99 @@ def test_describe_screenshot_returns_plain_description(tmp_path, monkeypatch):
     result = asyncio.run(describe_screenshot(str(png), structured_metadata=False))
 
     assert result == "A login form"
+
+
+@pytest.mark.integration
+def test_capture_url_full_page(tmp_path):
+    import asyncio
+
+    url = _write_page(tmp_path)
+    out_dir = tmp_path / "out"
+
+    saved = asyncio.run(capture_url(url, "homepage", output_dir=str(out_dir)))
+
+    assert Path(saved) == out_dir / "homepage.png"
+    assert Path(saved).exists()
+    assert Path(saved).stat().st_size > 0
+
+
+@pytest.mark.integration
+def test_capture_url_rejects_path_traversal_name(tmp_path):
+    import asyncio
+
+    url = _write_page(tmp_path)
+    out_dir = tmp_path / "out"
+
+    with pytest.raises(ValueError):
+        asyncio.run(capture_url(url, "../escape", output_dir=str(out_dir)))
+
+
+@pytest.mark.integration
+def test_capture_element(tmp_path):
+    import asyncio
+
+    url = _write_page(tmp_path)
+    out_dir = tmp_path / "out"
+
+    saved = asyncio.run(capture_element(url, "#content", "content-shot", output_dir=str(out_dir)))
+
+    assert Path(saved) == out_dir / "content-shot.png"
+    assert Path(saved).exists()
+
+
+def test_list_flows_returns_flow_names_from_config(tmp_path):
+    toml_path = tmp_path / "config.toml"
+    toml_path.write_text(
+        """
+        [[flows]]
+        name = "homepage"
+        [[flows]]
+        name = "login"
+        """
+    )
+
+    import asyncio
+
+    result = asyncio.run(list_flows(config_path=str(toml_path)))
+
+    assert result == ["homepage", "login"]
+
+
+def test_list_flows_returns_empty_list_when_no_config_available(monkeypatch):
+    monkeypatch.delenv("SCREENWRIGHT_CONFIG", raising=False)
+
+    import asyncio
+
+    result = asyncio.run(list_flows(config_path=None))
+
+    assert result == []
+
+
+def test_resolve_config_uses_explicit_path_over_env_var(tmp_path, monkeypatch):
+    explicit = tmp_path / "explicit.toml"
+    explicit.write_text('[[flows]]\nname = "from-explicit"\n')
+    env_config = tmp_path / "env.toml"
+    env_config.write_text('[[flows]]\nname = "from-env"\n')
+    monkeypatch.setenv("SCREENWRIGHT_CONFIG", str(env_config))
+
+    cfg = _resolve_config(str(explicit))
+
+    assert cfg.flow_names() == ["from-explicit"]
+
+
+def test_resolve_config_falls_back_to_env_var_when_no_explicit_path(tmp_path, monkeypatch):
+    env_config = tmp_path / "env.toml"
+    env_config.write_text('[[flows]]\nname = "from-env"\n')
+    monkeypatch.setenv("SCREENWRIGHT_CONFIG", str(env_config))
+
+    cfg = _resolve_config(None)
+
+    assert cfg.flow_names() == ["from-env"]
+
+
+def test_resolve_config_returns_empty_default_when_nothing_set(monkeypatch):
+    monkeypatch.delenv("SCREENWRIGHT_CONFIG", raising=False)
+
+    cfg = _resolve_config(None)
+
+    assert cfg.flows == []

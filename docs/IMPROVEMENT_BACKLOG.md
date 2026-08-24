@@ -163,9 +163,11 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
 - [x] `_describe_anthropic`/`_describe_openai` mocked and tested (2026-08-24, alongside #6).
       `_describe_ollama` still has zero coverage — lower priority, its response shape (plain
       dict) doesn't share the "unpacking assumptions" bug class #6 fixed for the other two.
-- [ ] MCP server test coverage: `_resolve_output` (#9) and `describe_screenshot` now covered
-      (2026-08-24). Still untested: `capture_url`, `capture_element`, `run_flow_tool`'s
-      flow-not-found path, `list_flows`, `_resolve_config`'s env-var fallback.
+- [x] MCP server test coverage — `_resolve_output` (#9), `describe_screenshot`, `capture_url`
+      (incl. its path-traversal rejection through the real tool, not just `_resolve_capture_path`
+      directly), `capture_element`, `list_flows` (with/without a config), and `_resolve_config`'s
+      explicit-path/env-var/neither precedence, all covered (2026-08-24). Still untested:
+      `run_flow_tool`'s flow-not-found error path.
 - [ ] No test covers a flow whose step fails mid-way (#1) or a `describe()` failure mid-run (#5).
 - [ ] `cli.py`: `run`'s config-not-found/flow-not-found/empty-flows paths and `validate`'s
       success/error paths now covered (2026-08-24, `tests/test_cli_validate.py`). Still
