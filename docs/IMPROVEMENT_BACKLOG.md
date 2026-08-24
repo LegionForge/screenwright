@@ -167,10 +167,13 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       (2026-08-24). Still untested: `capture_url`, `capture_element`, `run_flow_tool`'s
       flow-not-found path, `list_flows`, `_resolve_config`'s env-var fallback.
 - [ ] No test covers a flow whose step fails mid-way (#1) or a `describe()` failure mid-run (#5).
-- [ ] `cli.py` is untested — Typer's `CliRunner` would cover config-not-found/flow-not-found/
-      empty-flows cheaply.
-- [ ] All of `tests/test_capture.py` is `@pytest.mark.integration` — `pytest -m 'not integration'`
-      currently verifies zero of the capture engine.
+- [ ] `cli.py`: `run`'s config-not-found/flow-not-found/empty-flows paths and `validate`'s
+      success/error paths now covered (2026-08-24, `tests/test_cli_validate.py`). Still
+      untested: `flows` command's happy path, `run --output` override.
+- [ ] All of `tests/test_capture.py` is `@pytest.mark.integration` (still true — capture always
+      needs a browser). `tests/test_cli_validate.py` is the first non-integration-marked test
+      file (2026-08-24) — config validation never touches a browser, so
+      `pytest -m 'not integration'` now verifies something beyond pure-unit helpers.
 
 ## Missing but valuable features (prioritized)
 
@@ -182,8 +185,18 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
    `{color_scheme="dark"}`, etc.) instead of duplicating the whole flow per variant.
 4. **Accessibility snapshot export** (`page.accessibility.snapshot()`) — higher-value output for
    an *agent* consumer than a vision-model guess at a PNG; makes `accessibility_notes` real.
-5. **`screenwright validate config.toml`** — pydantic errors with TOML line numbers + a
-   selectors-resolve pre-flight pass, so a bad selector fails in <1s instead of 40s into a run.
+5. **`screenwright validate config.toml`** *(partially shipped 2026-08-24)* — implemented the
+   schema-validation half: `validate` catches TOML syntax errors and Pydantic schema violations
+   in well under a second, with clean "field.path: message" output (no raw traceback), shared
+   via a new `_load_config_or_exit()` helper that `run`/`flows` now also use instead of letting
+   `load_config()` raise unhandled. NOT implemented: pydantic errors annotated with TOML line
+   numbers (would need a source-span-tracking TOML parser like `tomlkit` instead of stdlib
+   `tomllib` — a real new dependency, deferred) and the selectors-resolve pre-flight pass (needs
+   an actual browser navigation per flow, which conflicts with `validate`'s current no-network/
+   offline/no-side-effects design goal — would need to be an opt-in flag, e.g. `--live`, not
+   `validate`'s default behavior, if added). 6 new tests in `tests/test_cli_validate.py` — first
+   file in the test suite not integration-marked, since config validation never touches a
+   browser (partial progress on the `pytest -m 'not integration'` coverage gap below).
 6. **Retry+backoff+politeness delay** for navigation and vision calls, plus a cost/token report.
 7. **Deterministic-capture helpers** — mask selectors (clock/avatar/email), `animations=disabled`
    — pairs with a **screenshot-diff `--check` mode** that fails CI on UI drift. Flagged as the

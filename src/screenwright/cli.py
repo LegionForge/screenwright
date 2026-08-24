@@ -1,15 +1,17 @@
 from __future__ import annotations
 
 import asyncio
+import tomllib
 from pathlib import Path
 from typing import Optional
 
 import typer
+from pydantic import ValidationError
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
 from screenwright.capture import run_flow
-from screenwright.config import load_config
+from screenwright.config import ScreenwrightConfig, load_config
 from screenwright.output import write_flow_output, write_root_readme
 from screenwright.vision import describe
 
@@ -25,6 +27,42 @@ def _resolve_output(config_output: str, override: Optional[Path]) -> Path:
     return override if override else Path(config_output)
 
 
+def _format_validation_errors(exc: ValidationError) -> list[str]:
+    """Render pydantic's error list as short "field.path: message" lines.
+
+    Drops the docs-URL footer pydantic appends per error — useful in a
+    library traceback, just noise in a CLI error list.
+    """
+    lines = []
+    for err in exc.errors():
+        loc = ".".join(str(part) for part in err["loc"]) or "(root)"
+        lines.append(f"{loc}: {err['msg']}")
+    return lines
+
+
+def _load_config_or_exit(config_path: Path) -> ScreenwrightConfig:
+    """Load config.toml, or print a clean error and exit — never a raw traceback.
+
+    Shared by run/flows/validate so a bad TOML (syntax error or a schema
+    violation like an invalid step field) fails the same clear way no
+    matter which command hit it.
+    """
+    if not config_path.exists():
+        console.print(f"[red]Config not found:[/red] {config_path}")
+        raise typer.Exit(1)
+
+    try:
+        return load_config(config_path)
+    except tomllib.TOMLDecodeError as exc:
+        console.print(f"[red]TOML syntax error in {config_path}:[/red] {exc}")
+        raise typer.Exit(1) from None
+    except ValidationError as exc:
+        console.print(f"[red]Config validation failed ({config_path}):[/red]")
+        for line in _format_validation_errors(exc):
+            console.print(f"  [red]•[/red] {line}")
+        raise typer.Exit(1) from None
+
+
 @app.command()
 def run(
     config_path: Path = typer.Argument(..., help="Path to TOML config file"),
@@ -34,11 +72,7 @@ def run(
     ),
 ) -> None:
     """Execute screenshot flows defined in a TOML config file."""
-    if not config_path.exists():
-        console.print(f"[red]Config not found:[/red] {config_path}")
-        raise typer.Exit(1)
-
-    cfg = load_config(config_path)
+    cfg = _load_config_or_exit(config_path)
     output_root = _resolve_output(cfg.output_dir, output)
     output_root.mkdir(parents=True, exist_ok=True)
 
@@ -126,11 +160,7 @@ def flows(
     config_path: Path = typer.Argument(..., help="Path to TOML config file"),
 ) -> None:
     """List flows defined in a config file."""
-    if not config_path.exists():
-        console.print(f"[red]Config not found:[/red] {config_path}")
-        raise typer.Exit(1)
-
-    cfg = load_config(config_path)
+    cfg = _load_config_or_exit(config_path)
     if not cfg.flows:
         console.print("[yellow]No flows defined.[/yellow]")
         return
@@ -140,3 +170,27 @@ def flows(
         console.print(
             f"  [bold]{flow_def.name}[/bold] — {len(flow_def.steps)} steps, {captures} capture(s)"
         )
+
+
+@app.command()
+def validate(
+    config_path: Path = typer.Argument(..., help="Path to TOML config file"),
+) -> None:
+    """Check a config file for TOML syntax errors and schema violations, without running it.
+
+    Catches everything Screenwright's Pydantic models validate at load time
+    (invalid step fields, path-traversal names, secret=true without an
+    ${ENV_VAR} value, etc.) in under a second — fast feedback compared to
+    finding out 40 seconds into a browser run that a flow was misconfigured.
+    Does not verify that selectors actually resolve on the live page; that
+    requires navigating each flow's URLs, which this intentionally doesn't
+    do (no side effects, no network dependency, works offline).
+    """
+    cfg = _load_config_or_exit(config_path)
+
+    total_steps = sum(len(f.steps) for f in cfg.flows)
+    total_captures = sum(1 for f in cfg.flows for s in f.steps if s.action == "capture")
+    console.print(
+        f"[green]Valid.[/green] {len(cfg.flows)} flow(s), {total_steps} step(s), "
+        f"{total_captures} capture(s)."
+    )

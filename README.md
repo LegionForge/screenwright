@@ -114,6 +114,19 @@ List flows in a config without running:
 screenwright flows flow.toml
 ```
 
+Check a config for TOML syntax errors and schema violations (invalid step fields,
+path-traversal names, `secret = true` without an `${ENV_VAR}` value, etc.) without launching a
+browser — useful for fast feedback while iterating on a flow, or as a pre-flight check in CI:
+
+```bash
+screenwright validate flow.toml
+```
+
+This validates the config's *shape*, not that its selectors actually resolve on the live page —
+that requires navigating each flow's URLs, which `validate` intentionally doesn't do (no side
+effects, no network dependency, works offline). `run` and `flows` report the same kind of clean
+error (not a raw Python traceback) if a config is invalid.
+
 Output will be organized as:
 
 ```
