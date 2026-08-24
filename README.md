@@ -540,8 +540,11 @@ Produces `dashboard-mobile.png` and `dashboard-desktop-dark.png` — no unsuffix
 since `variants` replaces the single capture entirely, it doesn't add to it. Each variant field
 is optional and falls back to the flow's own default (`viewport_width`/`viewport_height`) or
 Chromium's default (`"light"` for `color_scheme`) — a variant only needs to specify what it's
-actually varying. `accessibility_snapshot`/`pdf` on the same step apply per variant too
-(`dashboard-mobile.aria.yaml`, `dashboard-mobile.pdf`, etc.).
+actually varying. This fallback applies fresh to *each* variant, not just once at the end of the
+step — a `dark` variant followed by a variant that doesn't set `color_scheme` renders that later
+variant in `"light"`, not a leftover `"dark"` from the one before it.
+`accessibility_snapshot`/`pdf` on the same step apply per variant too (`dashboard-mobile.aria.yaml`,
+`dashboard-mobile.pdf`, etc.).
 
 Viewport and color-scheme changes are scoped to this one step — Screenwright restores the flow's
 own defaults immediately after the last variant, so later steps in the same flow aren't left

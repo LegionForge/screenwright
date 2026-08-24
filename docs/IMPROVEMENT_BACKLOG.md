@@ -307,6 +307,27 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       error. 5 new tests spanning direct model construction and `load_config()`. README's
       `validate` description updated.)*
 
+- [x] **#22 [medium, found 2026-08-24 by fresh review, not in the original Opus pass] Variant
+      `color_scheme` could leak into a later variant in the same step** — `capture.py`'s variant
+      loop only called `page.emulate_media(color_scheme=...)` when a variant explicitly set
+      `color_scheme`; when unset, the call was skipped entirely rather than resolving to
+      `"light"`, which `Variant`'s own docstring already documents as the guaranteed fallback. A
+      `dark` variant followed by a variant that doesn't set `color_scheme` rendered that later
+      variant still in dark mode — the state from the earlier variant, not the documented
+      default. The existing post-step restore (added under an earlier fix) only resets state
+      *after* the whole variants loop finishes; it doesn't help variant-to-variant leakage within
+      the same step, which is a different bug at a finer grain. *(fixed 2026-08-24: always
+      resolve `color_scheme` explicitly per variant
+      (`variant.color_scheme if variant.color_scheme is not None else "light"`), mirroring how
+      viewport width/height already resolve per-variant with a flow-default fallback instead of
+      being conditionally skipped. 1 new test
+      (`test_run_flow_variant_color_scheme_does_not_leak_between_variants`), spying on the real
+      `Page.emulate_media` to assert the actual call sequence (`["dark", "light", "light"]` —
+      the leak-preventing "light" for the second variant, then the existing post-step restore's
+      own "light") rather than a fake object graph. README's Capture Variants section clarified
+      that the per-field fallback applies fresh to each variant, not once at the end of the
+      step.)*
+
 ## Test coverage gaps
 
 - [x] `_describe_anthropic`/`_describe_openai` mocked and tested (2026-08-24, alongside #6).

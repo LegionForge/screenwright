@@ -1000,6 +1000,67 @@ def test_run_flow_capture_variants_produce_suffixed_files_only(tmp_path):
     assert not (output_root / "variants" / "shot.png").exists()
 
 
+def test_run_flow_variant_color_scheme_does_not_leak_between_variants(tmp_path, monkeypatch):
+    # A variant that doesn't set color_scheme must not inherit whatever an
+    # *earlier* variant in the same step's loop left active — it must
+    # explicitly reset to "light" (Variant's own docstring: unset falls
+    # back to "Chromium's default 'light'"), not silently skip the call.
+    # Spies on the real Page.emulate_media (rather than a fake object
+    # graph) so this exercises the actual code path end-to-end.
+    from playwright.async_api import Page
+
+    calls: list[str | None] = []
+    original_emulate_media = Page.emulate_media
+
+    async def spy_emulate_media(self, **kwargs):
+        calls.append(kwargs.get("color_scheme"))
+        return await original_emulate_media(self, **kwargs)
+
+    monkeypatch.setattr(Page, "emulate_media", spy_emulate_media)
+
+    url = _write_page(tmp_path)
+    toml_path = tmp_path / "config.toml"
+    toml_path.write_text(
+        f"""
+        [screenwright]
+        base_url = ""
+
+        [[flows]]
+        name = "variants"
+
+          [[flows.steps]]
+          action = "navigate"
+          url = "{url}"
+
+          [[flows.steps]]
+          action = "capture"
+          name = "shot"
+
+            [[flows.steps.variants]]
+            name = "dark"
+            color_scheme = "dark"
+
+            [[flows.steps.variants]]
+            name = "mobile"
+            viewport_width = 390
+        """
+    )
+    cfg = load_config(toml_path)
+    flow = cfg.get_flow("variants")
+    output_root = tmp_path / "output"
+
+    import asyncio
+
+    result = asyncio.run(run_flow(flow, cfg, output_root))
+
+    assert result.error is None
+    # "dark" (the dark variant) then "light" (the mobile variant, which
+    # must not inherit "dark") then a final "light" (the existing
+    # post-step restore, so later steps in the flow aren't left running
+    # under a variant's settings either).
+    assert calls == ["dark", "light", "light"]
+
+
 def test_run_flow_restores_viewport_after_variants_step(tmp_path):
     url = _write_page(tmp_path)
     toml_path = tmp_path / "config.toml"

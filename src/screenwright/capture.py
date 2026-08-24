@@ -253,8 +253,23 @@ async def run_flow(
                                         else flow.viewport_height,
                                     }
                                 )
-                            if variant.color_scheme is not None:
-                                await page.emulate_media(color_scheme=variant.color_scheme)
+                            # Always resolve color_scheme explicitly (never
+                            # skip the call when unset) — otherwise a
+                            # variant that doesn't set color_scheme inherits
+                            # whatever an *earlier* variant in this same
+                            # step's loop left active, contradicting the
+                            # documented "unset falls back to light"
+                            # contract (Variant's own docstring). This is
+                            # the same class of bug as the post-step
+                            # restore fix below, one level finer-grained:
+                            # that fix resets state after all variants
+                            # finish; this one resets it between each one.
+                            color_scheme = (
+                                variant.color_scheme
+                                if variant.color_scheme is not None
+                                else "light"
+                            )
+                            await page.emulate_media(color_scheme=color_scheme)
 
                         out = flow_dir / f"{step.name}{suffix}.png"
                         await _capture_page_or_element(

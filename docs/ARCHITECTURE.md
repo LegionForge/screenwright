@@ -205,3 +205,14 @@ sequenceDiagram
   `CaptureStep` (`_validate_unique_variant_names`) and `Flow`
   (`_validate_unique_capture_names`) respectively — same reject-don't-sanitize approach at every
   level where a config value flows directly into an output filename.
+- **A variant's `color_scheme` could leak into a later variant in the same step.** The capture
+  loop only called `page.emulate_media(color_scheme=...)` when a variant explicitly set
+  `color_scheme`; when unset, the call was skipped entirely rather than resolving to `"light"`
+  (`Variant`'s own docstring already documented `"light"` as the guaranteed fallback). A `dark`
+  variant followed by a variant that doesn't set `color_scheme` would render that later variant
+  still in dark mode, inherited from the earlier one — contradicting the documented contract.
+  The existing post-step restore only resets state *after* the whole loop finishes, which
+  doesn't help variant-to-variant within the same step. Fixed by always resolving
+  `color_scheme` explicitly per variant (`variant.color_scheme or "light"`), mirroring how
+  viewport width/height already resolve per-variant with a flow-default fallback rather than
+  being conditionally skipped.
