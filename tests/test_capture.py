@@ -51,6 +51,16 @@ def _write_page(tmp_path):
     return f"file://{page}"
 
 
+def _png_dimensions(path):
+    # PNG signature (8 bytes) + IHDR chunk length/type (8 bytes), then
+    # width/height as big-endian uint32 — avoids adding an image-library
+    # dependency just to assert a screenshot's viewport size in tests.
+    data = path.read_bytes()
+    width = int.from_bytes(data[16:20], "big")
+    height = int.from_bytes(data[20:24], "big")
+    return width, height
+
+
 def test_capture_single_url_full_page(tmp_path):
     url = _write_page(tmp_path)
     out = tmp_path / "out" / "full.png"
@@ -84,6 +94,34 @@ def test_capture_single_url_missing_selector_raises(tmp_path):
 
     with pytest.raises(ValueError, match="Selector not found"):
         asyncio.run(capture_single_url(url, out, selector="#does-not-exist"))
+
+
+def test_capture_single_url_respects_custom_viewport(tmp_path):
+    url = _write_page(tmp_path)
+    out = tmp_path / "out" / "viewport.png"
+
+    import asyncio
+
+    asyncio.run(capture_single_url(url, out, viewport_width=600, viewport_height=400))
+
+    width, _height = _png_dimensions(out)
+    assert width == 600
+
+
+def test_capture_single_url_default_viewport_matches_playwright_default(tmp_path):
+    # Not setting viewport_width/height explicitly must behave exactly as
+    # before this feature existed — Playwright's own Chromium default is
+    # 1280x720, which is also this function's default, so this asserts no
+    # behavior change for existing callers.
+    url = _write_page(tmp_path)
+    out = tmp_path / "out" / "default-viewport.png"
+
+    import asyncio
+
+    asyncio.run(capture_single_url(url, out))
+
+    width, _height = _png_dimensions(out)
+    assert width == 1280
 
 
 def test_run_flow_executes_steps_and_produces_captures(tmp_path):
@@ -363,6 +401,82 @@ def test_run_flow_fill_reports_clear_error_on_unset_env_var(tmp_path, monkeypatc
     assert result.error is not None
     assert "SCREENWRIGHT_TEST_MISSING_VAR" in result.error
     assert result.failed_step_index == 1
+
+
+def test_run_flow_respects_custom_viewport(tmp_path):
+    url = _write_page(tmp_path)
+    toml_path = tmp_path / "config.toml"
+    toml_path.write_text(
+        f"""
+        [screenwright]
+        base_url = ""
+
+        [[flows]]
+        name = "sized"
+        viewport_width = 600
+        viewport_height = 400
+
+          [[flows.steps]]
+          action = "navigate"
+          url = "{url}"
+
+          [[flows.steps]]
+          action = "capture"
+          name = "shot"
+        """
+    )
+    cfg = load_config(toml_path)
+    flow = cfg.get_flow("sized")
+    output_root = tmp_path / "output"
+
+    import asyncio
+
+    result = asyncio.run(run_flow(flow, cfg, output_root))
+
+    width, _height = _png_dimensions(result.captures[0].path)
+    assert width == 600
+
+
+def test_run_flow_respects_custom_timeout(tmp_path):
+    # A very short timeout on a step that has to wait for a selector that
+    # never appears must fail fast with a Playwright TimeoutError surfaced
+    # via the existing per-step error handling — not hang for the default
+    # 30s. This is the actual behavioral proof that set_default_timeout
+    # took effect, not just that the config field exists.
+    url = _write_page(tmp_path)
+    toml_path = tmp_path / "config.toml"
+    toml_path.write_text(
+        f"""
+        [screenwright]
+        base_url = ""
+
+        [[flows]]
+        name = "impatient"
+        timeout_ms = 200
+
+          [[flows.steps]]
+          action = "navigate"
+          url = "{url}"
+
+          [[flows.steps]]
+          action = "click"
+          selector = "#never-appears"
+        """
+    )
+    cfg = load_config(toml_path)
+    flow = cfg.get_flow("impatient")
+    output_root = tmp_path / "output"
+
+    import asyncio
+    import time
+
+    start = time.monotonic()
+    result = asyncio.run(run_flow(flow, cfg, output_root))
+    elapsed = time.monotonic() - start
+
+    assert result.error is not None
+    assert "Timeout" in result.error
+    assert elapsed < 5  # well under the default 30s, proving timeout_ms took effect
 
 
 def test_run_flow_check_and_select_steps(tmp_path):

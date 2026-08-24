@@ -128,9 +128,20 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       tests, including one that would have caught the original bug directly: a config with
       `output_dir` explicitly set to the same string as the default must still resolve to that
       directory, not fall through to the temp default.)*
-- [ ] **#10 [low-medium] No timeouts/viewport control anywhere** — `capture.py:88-94,119-159`.
+- [x] **#10 [low-medium] No timeouts/viewport control anywhere** — `capture.py:88-94,119-159`.
       No `set_default_timeout`, no per-step override, `wait_until: str` untyped so a typo becomes
-      a Playwright error instead of a config validation error.
+      a Playwright error instead of a config validation error. *(the `wait_until` typing half was
+      already fixed earlier this session — `NavigateStep.wait_until` is a `Literal[...]`, not a
+      bare `str`. Fixed 2026-08-24: `Flow` gains `viewport_width`/`viewport_height` (default
+      1280/720, matching Playwright's own Chromium default so unset behavior is unchanged) and
+      `timeout_ms` (default 30000, Playwright's own default). `run_flow` passes viewport to
+      `browser.new_page()`/`new_context()` and calls `page.set_default_timeout()`;
+      `capture_single_url` gained matching `viewport_width`/`viewport_height`/`timeout_ms`
+      kwargs. README/API_REFERENCE/wiki updated. Tests: viewport asserted via a dependency-free
+      PNG-header dimension reader (no need for an image library); timeout asserted
+      behaviorally — a flow with `timeout_ms = 200` against a selector that never appears fails
+      in well under 5s instead of the default 30s, proving the value actually took effect rather
+      than just existing as an unused config field.)*
 - [x] **#11 [low] `save_metadata` annotated `-> Path` but returns `None`** — `output.py:9-18`.
       mypy isn't in CI so unnoticed; fix annotation to `Path | None`. *(fixed 2026-08-24 —
       one-line annotation fix.)*

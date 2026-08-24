@@ -129,6 +129,9 @@ class Flow(BaseModel):
     record_width: int = 1280
     record_height: int = 720
     record_mp4: bool = False
+    viewport_width: int = 1280
+    viewport_height: int = 720
+    timeout_ms: int = 30000
 
     _validate_name = field_validator("name")(validate_safe_name)
 

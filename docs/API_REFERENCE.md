@@ -31,6 +31,8 @@ Methods: `.get_flow(name: str) -> Flow \| None`, `.flow_names() -> list[str]`.
 | `record` | `bool` | `false` |
 | `record_width` / `record_height` | `int` | `1280` / `720` |
 | `record_mp4` | `bool` | `false` |
+| `viewport_width` / `viewport_height` | `int` | `1280` / `720` |
+| `timeout_ms` | `int` | `30000` |
 
 ### `Step`
 A Pydantic discriminated union (on `action`) of: `NavigateStep`, `CaptureStep`, `FillStep`,

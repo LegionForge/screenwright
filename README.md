@@ -262,6 +262,17 @@ does — check your client's current docs if one of the snippets above doesn't c
 | `structured_metadata` | bool | `true` | Return JSON metadata alongside plain description |
 | `prompt` | string | *(built-in)* | Override the describe prompt sent to the vision model |
 
+### `[[flows]]` fields
+
+Set on a flow itself, not on individual steps:
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `name` | string | required | Flow name — becomes the output subdirectory |
+| `viewport_width` / `viewport_height` | int | `1280` / `720` | Browser viewport size for every step in this flow |
+| `timeout_ms` | int | `30000` | Default timeout for navigation and actions (selectors, clicks, etc.) — a step that exceeds this fails with a clear "Timeout" error via the normal per-step error handling, rather than hanging |
+| `record` / `record_width` / `record_height` / `record_mp4` | — | see [Video Recording](#video-recording) | Flow-level video capture |
+
 ### Flow steps
 
 | Action | Required fields | Optional fields | Description |

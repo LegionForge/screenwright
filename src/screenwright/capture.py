@@ -106,10 +106,16 @@ async def capture_single_url(
     output_path: Path,
     selector: str | None = None,
     wait_until: str = "load",
+    timeout_ms: int = 30000,
+    viewport_width: int = 1280,
+    viewport_height: int = 720,
 ) -> Path:
     async with async_playwright() as p:
         browser: Browser = await p.chromium.launch()
-        page: Page = await browser.new_page()
+        page: Page = await browser.new_page(
+            viewport={"width": viewport_width, "height": viewport_height}
+        )
+        page.set_default_timeout(timeout_ms)
         await page.goto(url, wait_until=wait_until)
         await _capture_page_or_element(page, output_path, selector)
         await browser.close()
@@ -128,15 +134,18 @@ async def run_flow(
     async with async_playwright() as p:
         browser: Browser = await p.chromium.launch()
 
+        viewport = {"width": flow.viewport_width, "height": flow.viewport_height}
         context: Optional[BrowserContext] = None
         if flow.record:
             context = await browser.new_context(
+                viewport=viewport,
                 record_video_dir=str(flow_dir),
                 record_video_size={"width": flow.record_width, "height": flow.record_height},
             )
             page = await context.new_page()
         else:
-            page = await browser.new_page()
+            page = await browser.new_page(viewport=viewport)
+        page.set_default_timeout(flow.timeout_ms)
 
         for index, step in enumerate(flow.steps):
             try:
