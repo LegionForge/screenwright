@@ -265,3 +265,25 @@ def test_resolve_config_returns_empty_default_when_nothing_set(monkeypatch):
     cfg = _resolve_config(None)
 
     assert cfg.flows == []
+
+
+def test_run_flow_tool_raises_clear_error_for_unknown_flow_name(tmp_path):
+    toml_path = tmp_path / "config.toml"
+    toml_path.write_text(
+        """
+        [[flows]]
+        name = "homepage"
+        [[flows]]
+        name = "login"
+        """
+    )
+
+    import asyncio
+
+    with pytest.raises(ValueError, match="not found") as exc_info:
+        asyncio.run(run_flow_tool("does-not-exist", config_path=str(toml_path)))
+
+    # The error should list what IS available, so an agent can self-correct
+    # on the next call instead of guessing.
+    assert "homepage" in str(exc_info.value)
+    assert "login" in str(exc_info.value)
