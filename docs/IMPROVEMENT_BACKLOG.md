@@ -421,6 +421,26 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       capture, PDF-from-HTML without a URL) that are still out of scope by design. Wiki-only
       change — no README/DECISIONS.md claim needed the same fix, checked and confirmed clean.)*
 
+- [x] **#29 [high, found 2026-08-24 by fresh review, not in the original Opus pass]
+      `screenwright run` never exited non-zero for a failed flow** — `cli.py`. Every crash-fix
+      this session (#1, #14, #16, #18) routes a mid-flow failure through `FlowResult.error`
+      instead of raising, and `run` already printed a `"stopped early"` warning listing it — but
+      nothing called `raise typer.Exit(1)` for that case, only for `--concurrency < 1` and,
+      separately, `--check` finding a screenshot diff. Verified live before fixing: a flow with
+      a bad `selector` printed the warning correctly and still exited `0`. This directly
+      undermines the exact CI pre-flight-check use case the README markets `validate` and
+      `--check` for — a pipeline gating on `screenwright run`'s exit code would silently pass a
+      build even though documentation capture genuinely failed partway through. Arguably the
+      highest-value fix of this session's later half: everything else in the "never raise"
+      chain (#1, #14, #16, #18) only matters if something downstream actually surfaces the
+      failure, and this was the one place that didn't. *(fixed 2026-08-24: `run` now raises
+      `typer.Exit(1)` whenever `failed_flows` is non-empty, combined with (not replacing) the
+      existing `--check`-diff exit condition — both share one `typer.Exit(1)` call so a flow
+      failure and a screenshot diff aren't silently mutually exclusive triggers. 1 new test
+      (`test_run_exits_nonzero_when_a_flow_fails`), verified against the same live repro used to
+      confirm the bug before writing the fix. README's Quick Start section documents the exit
+      code contract explicitly for the first time.)*
+
 ## Test coverage gaps
 
 - [x] `_describe_anthropic`/`_describe_openai` mocked and tested (2026-08-24, alongside #6).

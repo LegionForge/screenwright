@@ -94,6 +94,42 @@ def test_run_rejects_concurrency_below_one(tmp_path):
     assert "--concurrency must be at least 1" in result.output
 
 
+def test_run_exits_nonzero_when_a_flow_fails(tmp_path):
+    # screenwright run is explicitly marketed (README) as usable in a CI
+    # pre-flight check — a non-zero exit code is the only signal CI
+    # actually gates on. A flow that stops mid-way (a bad selector here)
+    # must fail the run, not just print a warning and exit 0.
+    html = tmp_path / "page.html"
+    html.write_text(_HTML)
+    url = f"file://{html}"
+
+    toml_path = tmp_path / "config.toml"
+    toml_path.write_text(
+        f"""
+        [screenwright]
+        base_url = ""
+
+        [[flows]]
+        name = "demo"
+
+          [[flows.steps]]
+          action = "navigate"
+          url = "{url}"
+
+          [[flows.steps]]
+          action = "capture"
+          name = "shot"
+          selector = "#does-not-exist-anywhere"
+        """
+    )
+    output_dir = tmp_path / "out"
+
+    result = runner.invoke(app, ["run", str(toml_path), "--output", str(output_dir)])
+
+    assert result.exit_code == 1
+    assert "stopped early" in result.output
+
+
 @pytest.mark.parametrize("concurrency", [1, 2])
 def test_run_completes_all_flows_at_various_concurrency(tmp_path, concurrency):
     toml_path = _write_two_flow_config(tmp_path)

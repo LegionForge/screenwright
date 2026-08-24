@@ -144,6 +144,11 @@ Fail the run if any screenshot changed since the last run — see [Screenshot Di
 screenwright run flow.toml --check
 ```
 
+`run` exits `1` if any flow stops mid-way (a bad selector, a navigation failure that didn't clear
+on retry, etc.) — captures from before the failure are still written, but the exit code reflects
+that something went wrong, which is what a CI pre-flight check actually gates on. Exits `0` only
+when every flow completed cleanly (and, with `--check`, no screenshot changed).
+
 Output will be organized as:
 
 ```

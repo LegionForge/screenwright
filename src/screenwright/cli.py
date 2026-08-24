@@ -240,15 +240,26 @@ def run(
         console.print(f"[green]Recorded {total_videos} video(s).[/green]")
     console.print(f"Output: [bold]{output_root}[/bold]")
 
+    check_found_changes = False
     if check:
         changed_by_flow = {result.flow_name: changed for result, changed in outcomes if changed}
         if changed_by_flow:
+            check_found_changes = True
             console.print("\n[yellow]Screenshot changes detected:[/yellow]")
             for flow_name, changed in changed_by_flow.items():
                 for capture_name in changed:
                     console.print(f"  [yellow]•[/yellow] {flow_name}/{capture_name}")
-            raise typer.Exit(1)
-        console.print("\n[green]No screenshot changes detected.[/green]")
+        else:
+            console.print("\n[green]No screenshot changes detected.[/green]")
+
+    # A flow that stopped mid-way (result.error set) must fail the run, not
+    # just print a warning — screenwright run is explicitly marketed (see
+    # README) as usable in a CI pre-flight check, and a non-zero exit code
+    # is the only signal CI actually gates on. Before this, a partial
+    # failure printed the same warning it does now but still exited 0,
+    # silently passing a build even though documentation capture failed.
+    if failed_flows or check_found_changes:
+        raise typer.Exit(1)
 
 
 @app.command()

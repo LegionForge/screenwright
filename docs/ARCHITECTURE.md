@@ -216,3 +216,12 @@ sequenceDiagram
   `color_scheme` explicitly per variant (`variant.color_scheme or "light"`), mirroring how
   viewport width/height already resolve per-variant with a flow-default fallback rather than
   being conditionally skipped.
+- **`screenwright run` never exited non-zero for a failed flow — the one gap that mattered most
+  for the CI pre-flight use case the README explicitly markets.** Every crash-fix this session
+  (#1, #14, #16, #18) made a mid-flow failure land on `FlowResult.error` instead of raising, and
+  `cli.py`'s `run` command already printed a `"stopped early"` warning for it — but nothing ever
+  called `raise typer.Exit(1)` for that case, only for `--concurrency < 1` and (separately)
+  `--check` finding a diff. A CI pipeline invoking `screenwright run` as a pre-flight check would
+  see exit code 0 and pass the build even when a flow genuinely failed. Fixed by raising
+  `typer.Exit(1)` whenever `failed_flows` is non-empty, combined with (not replacing) the
+  existing `--check`-diff exit condition.
