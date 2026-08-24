@@ -112,6 +112,83 @@ def test_run_completes_all_flows_at_various_concurrency(tmp_path, concurrency):
     assert "beta" in root_readme
 
 
+def _write_single_capture_config(tmp_path, html_path):
+    url = f"file://{html_path}"
+    toml_path = tmp_path / "config.toml"
+    toml_path.write_text(
+        f"""
+        [screenwright]
+        base_url = ""
+        vision_describe = false
+
+        [[flows]]
+        name = "demo"
+
+          [[flows.steps]]
+          action = "navigate"
+          url = "{url}"
+
+          [[flows.steps]]
+          action = "capture"
+          name = "shot"
+        """
+    )
+    return toml_path
+
+
+def test_check_reports_all_captures_as_changed_on_first_run(tmp_path):
+    html = tmp_path / "page.html"
+    html.write_text(_HTML)
+    toml_path = _write_single_capture_config(tmp_path, html)
+    output_dir = tmp_path / "out"
+
+    result = runner.invoke(app, ["run", str(toml_path), "--output", str(output_dir), "--check"])
+
+    assert result.exit_code == 1
+    assert "demo/shot" in result.output
+
+
+def test_check_reports_no_changes_on_identical_rerun(tmp_path):
+    html = tmp_path / "page.html"
+    html.write_text(_HTML)
+    toml_path = _write_single_capture_config(tmp_path, html)
+    output_dir = tmp_path / "out"
+
+    first = runner.invoke(app, ["run", str(toml_path), "--output", str(output_dir), "--check"])
+    assert first.exit_code == 1
+
+    second = runner.invoke(app, ["run", str(toml_path), "--output", str(output_dir), "--check"])
+    assert second.exit_code == 0
+    assert "No screenshot changes detected" in second.output
+
+
+def test_check_reports_changed_capture_after_content_change(tmp_path):
+    html = tmp_path / "page.html"
+    html.write_text(_HTML)
+    toml_path = _write_single_capture_config(tmp_path, html)
+    output_dir = tmp_path / "out"
+
+    first = runner.invoke(app, ["run", str(toml_path), "--output", str(output_dir), "--check"])
+    assert first.exit_code == 1
+
+    html.write_text(_HTML.replace("Hello", "Goodbye"))
+    second = runner.invoke(app, ["run", str(toml_path), "--output", str(output_dir), "--check"])
+    assert second.exit_code == 1
+    assert "demo/shot" in second.output
+
+
+def test_run_without_check_does_not_print_diff_report(tmp_path):
+    html = tmp_path / "page.html"
+    html.write_text(_HTML)
+    toml_path = _write_single_capture_config(tmp_path, html)
+    output_dir = tmp_path / "out"
+
+    result = runner.invoke(app, ["run", str(toml_path), "--output", str(output_dir)])
+
+    assert result.exit_code == 0
+    assert "screenshot changes" not in result.output.lower()
+
+
 def test_run_continues_past_a_single_describe_failure(tmp_path, monkeypatch):
     toml_path = _write_two_capture_flow(tmp_path)
     output_dir = tmp_path / "out"

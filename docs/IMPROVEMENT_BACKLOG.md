@@ -263,11 +263,8 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
    Verified directly against the installed Playwright before writing code: masking a
    non-matching selector is a silent no-op (unlike `selector`, which raises), so an optional
    masking target doesn't have to exist on every page a flow runs against. 8 new tests.
-   README/API_REFERENCE/ARCHITECTURE/wiki updated. NOT done: the **screenshot-diff `--check`
-   mode** this was originally paired with — that's a separate, larger feature (needs a baseline
-   store, a pixel-diff algorithm, a new CLI flag/exit-code contract) and remains unstarted.
-   Flagged as the most differentiated addition for a docs pipeline specifically — good next
-   candidate.
+   README/API_REFERENCE/ARCHITECTURE/wiki updated. The **screenshot-diff `--check` mode** this
+   was originally paired with shipped separately below (item 10).
 8. **Parallel flow execution** *(shipped 2026-08-24)* — new `screenwright run --concurrency N`
    (default 1, i.e. today's sequential behavior unless opted into). Implementation differs from
    the original framing ("one browser + bounded asyncio.gather over contexts") — kept each
@@ -299,5 +296,15 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
     `{flow_name, index_md, captures: [{name, path, metadata}]}`; a capture with no `.json`
     sidecar gets `metadata: null` rather than being dropped. 2 new tests. README, MCP_TOOLS.md,
     and wiki updated.
+11. **Screenshot diff `--check` mode** *(shipped 2026-08-24)* — `screenwright run --check` exits
+    1 and lists changed `{flow_name}/{capture_name}` pairs if any PNG's SHA256 differs from the
+    previous run in the same output directory (or is new); exits 0 otherwise. Scoped down from
+    the originally-envisioned perceptual/pixel-diff-with-baseline-store feature to an exact-byte
+    diff living entirely in `cli.py` — `run_flow`/`capture.py` untouched, hashing skipped
+    entirely when `--check` isn't passed (zero overhead for the common case). Deliberately pairs
+    with item 7's `animations`/`mask` determinism work — `--check` has no pixel tolerance, so
+    residual non-determinism should be fixed there, not worked around here. 4 new tests
+    (first-run-all-changed, identical-rerun-no-changes, content-change-detected,
+    without-`--check`-no-diff-report). README/ARCHITECTURE/wiki updated.
 
 ## Market research (pending — append when the research pass returns)

@@ -132,3 +132,14 @@ sequenceDiagram
   block's guard broadened from `context is not None and page is not None` to just
   `page is not None` so `page.close()` always runs — harmless when neither video nor HAR is
   active, required when either is.
+- **`--check` is an exact-byte diff living entirely in `cli.py`, not a perceptual-diff feature
+  in the capture engine.** `run_flow`/`capture.py` are unchanged; `_process_flow` hashes a flow's
+  output directory's PNGs (SHA256) before running it, then again after, and reports any filename
+  whose hash changed or is new. Hashing is skipped entirely when `--check` isn't passed (`before`
+  is `{}`, `changed` is always `[]`), so the common case pays no cost for a feature it doesn't
+  use. This intentionally pairs with (and depends on) the determinism work above — a page with
+  residual non-determinism will report false positives under `--check`; the fix is tightening
+  `animations`/`mask`, not adding pixel tolerance here. A perceptual/pixel-diff mode with a
+  persisted baseline store was considered and deferred as materially larger scope for the same
+  Opus-review-backlog item; this exact-byte MVP covers the CI-gate use case (did anything change
+  at all) without it.

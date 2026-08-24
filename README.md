@@ -137,6 +137,12 @@ that requires navigating each flow's URLs, which `validate` intentionally doesn'
 effects, no network dependency, works offline). `run` and `flows` report the same kind of clean
 error (not a raw Python traceback) if a config is invalid.
 
+Fail the run if any screenshot changed since the last run — see [Screenshot Diff](#screenshot-diff---check):
+
+```bash
+screenwright run flow.toml --check
+```
+
 Output will be organized as:
 
 ```
@@ -571,6 +577,25 @@ real but not the point: a live clock, a per-session avatar, an email address. Un
 (which raises an error if nothing matches), a `mask` selector matching nothing is a silent
 no-op — an optional masking target not being present on every page a flow runs against isn't a
 flow failure.
+
+---
+
+## Screenshot Diff (`--check`)
+
+Fail the run if any screenshot's bytes changed since the last run in the same output directory —
+useful as a CI gate that catches unintended visual regressions in a docs/UI-review pipeline:
+
+```bash
+screenwright run flow.toml --check
+```
+
+This is an exact SHA256 byte diff, not a perceptual/pixel-tolerance diff — it exists to pair
+with [Deterministic Captures](#deterministic-captures) above, not replace them. If a page has
+residual non-determinism (an animation, a live value), fix that with `animations`/`mask` first;
+`--check` will otherwise flag harmless noise as a change on every run. A first run against an
+empty output directory has nothing to diff against, so every capture reports as changed — that's
+expected, not an error. On a diff, `screenwright` exits `1` and lists the changed
+`{flow_name}/{capture_name}` pairs; with no diff it exits `0`.
 
 ---
 

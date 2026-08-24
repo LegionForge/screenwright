@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import tomllib
 from pathlib import Path
 from typing import Optional
@@ -63,13 +64,29 @@ def _load_config_or_exit(config_path: Path) -> ScreenwrightConfig:
         raise typer.Exit(1) from None
 
 
+def _hash_file(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _snapshot_pngs(flow_dir: Path) -> dict[str, str]:
+    """Hash every existing PNG in a flow's output dir, keyed by filename.
+
+    Taken *before* a flow runs (which overwrites files at the same paths),
+    so it captures the previous run's state to diff the new one against.
+    """
+    if not flow_dir.is_dir():
+        return {}
+    return {p.name: _hash_file(p) for p in flow_dir.glob("*.png")}
+
+
 async def _process_flow(
     flow_def: Flow,
     cfg: ScreenwrightConfig,
     output_root: Path,
     progress: Progress,
     semaphore: asyncio.Semaphore,
-) -> FlowResult:
+    check: bool,
+) -> tuple[FlowResult, list[str]]:
     """Run one flow, describe its captures, and write its output.
 
     The progress task is created only after the semaphore is acquired
@@ -77,9 +94,14 @@ async def _process_flow(
     this produces the exact same one-task-at-a-time progress display as
     before concurrency existed — no visible behavior change for the
     default case, only for opt-in --concurrency > 1.
+
+    Returns (result, changed_capture_names) — changed_capture_names is
+    always [] when check=False (no hashing done, no overhead for the
+    common case).
     """
     async with semaphore:
         task = progress.add_task(f"Running flow: [bold]{flow_def.name}[/bold]", total=None)
+        before = _snapshot_pngs(output_root / flow_def.name) if check else {}
         result = await run_flow(flow_def, cfg, output_root)
 
         if cfg.vision_describe and result.captures:
@@ -105,6 +127,13 @@ async def _process_flow(
                     )
 
         write_flow_output(result, output_root)
+
+        changed: list[str] = []
+        if check:
+            for capture in result.captures:
+                if before.get(capture.path.name) != _hash_file(capture.path):
+                    changed.append(capture.capture_name)
+
         if result.error:
             progress.update(
                 task,
@@ -117,7 +146,7 @@ async def _process_flow(
                 completed=True,
                 description=f"[green]Done:[/green] {flow_def.name}",
             )
-        return result
+        return result, changed
 
 
 async def _run_flows(
@@ -125,7 +154,8 @@ async def _run_flows(
     cfg: ScreenwrightConfig,
     output_root: Path,
     concurrency: int,
-) -> list[FlowResult]:
+    check: bool,
+) -> list[tuple[FlowResult, list[str]]]:
     semaphore = asyncio.Semaphore(concurrency)
     with Progress(
         SpinnerColumn(),
@@ -134,7 +164,7 @@ async def _run_flows(
     ) as progress:
         return await asyncio.gather(
             *(
-                _process_flow(flow_def, cfg, output_root, progress, semaphore)
+                _process_flow(flow_def, cfg, output_root, progress, semaphore, check)
                 for flow_def in flows_to_run
             )
         )
@@ -153,6 +183,16 @@ def run(
         "-j",
         help="Run up to N flows concurrently (default 1 = sequential, same as before this "
         "option existed). Each flow launches its own browser, so raise this cautiously.",
+    ),
+    check: bool = typer.Option(
+        False,
+        "--check",
+        "-c",
+        help="Exit 1 if any screenshot's bytes differ from the previous run in the same "
+        "output directory (exact SHA256 diff, not perceptual). Pairs with the deterministic "
+        "capture options (animations='disabled' by default, mask) — if a page has residual "
+        "non-determinism, tighten those rather than expecting fuzzy tolerance here. A first "
+        "run with no prior output reports every capture as changed; that's expected.",
     ),
 ) -> None:
     """Execute screenshot flows defined in a TOML config file."""
@@ -177,7 +217,8 @@ def run(
         console.print("[yellow]No flows defined in config.[/yellow]")
         raise typer.Exit(0)
 
-    all_results = asyncio.run(_run_flows(flows_to_run, cfg, output_root, concurrency))
+    outcomes = asyncio.run(_run_flows(flows_to_run, cfg, output_root, concurrency, check))
+    all_results = [result for result, _ in outcomes]
 
     write_root_readme(all_results, output_root)
 
@@ -198,6 +239,16 @@ def run(
     if total_videos:
         console.print(f"[green]Recorded {total_videos} video(s).[/green]")
     console.print(f"Output: [bold]{output_root}[/bold]")
+
+    if check:
+        changed_by_flow = {result.flow_name: changed for result, changed in outcomes if changed}
+        if changed_by_flow:
+            console.print("\n[yellow]Screenshot changes detected:[/yellow]")
+            for flow_name, changed in changed_by_flow.items():
+                for capture_name in changed:
+                    console.print(f"  [yellow]•[/yellow] {flow_name}/{capture_name}")
+            raise typer.Exit(1)
+        console.print("\n[green]No screenshot changes detected.[/green]")
 
 
 @app.command()
