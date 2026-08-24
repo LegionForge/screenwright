@@ -8,6 +8,7 @@ from screenwright.config import VisionConfig
 from screenwright.vision import (
     _build_prompt,
     _describe_anthropic,
+    _describe_ollama,
     _describe_openai,
     _first_text_block,
     _import_provider_sdk,
@@ -273,6 +274,61 @@ def test_describe_openai_returns_normal_description(monkeypatch, tmp_path):
 
     result = _describe_openai(image, VisionConfig(structured_metadata=False))
     assert result.description == "A homepage hero section"
+
+
+def test_describe_ollama_returns_description(monkeypatch, tmp_path):
+    import ollama
+    from ollama._types import ChatResponse, Message
+
+    image = tmp_path / "shot.png"
+    image.write_bytes(b"fake-png")
+
+    def fake_chat(**kwargs):
+        return ChatResponse(
+            model=kwargs["model"], message=Message(role="assistant", content="A login form")
+        )
+
+    monkeypatch.setattr(ollama, "chat", fake_chat)
+
+    result = _describe_ollama(image, VisionConfig(model="moondream", structured_metadata=False))
+    assert result.description == "A login form"
+
+
+def test_describe_ollama_passes_image_bytes_and_prompt(monkeypatch, tmp_path):
+    import ollama
+    from ollama._types import ChatResponse, Message
+
+    image = tmp_path / "shot.png"
+    image.write_bytes(b"fake-png-bytes")
+
+    captured = {}
+
+    def fake_chat(**kwargs):
+        captured.update(kwargs)
+        return ChatResponse(model=kwargs["model"], message=Message(role="assistant", content=""))
+
+    monkeypatch.setattr(ollama, "chat", fake_chat)
+
+    _describe_ollama(
+        image, VisionConfig(model="llava", structured_metadata=False, prompt="Describe it")
+    )
+
+    assert captured["model"] == "llava"
+    message = captured["messages"][0]
+    assert message["content"] == "Describe it"
+    assert message["images"] == [b"fake-png-bytes"]
+
+
+def test_ollama_response_shape_matches_our_assumptions():
+    # Guards _describe_ollama's assumption that response["message"]["content"]
+    # dict-style indexing works on the real ChatResponse/Message types (they
+    # subclass a Pydantic base with __getitem__ for backward compat, not a
+    # plain dict) — verified directly against the installed SDK, not a mock.
+    from ollama._types import ChatResponse, Message
+
+    msg = Message(role="assistant", content="hello")
+    resp = ChatResponse(model="test", message=msg)
+    assert resp["message"]["content"] == "hello"
 
 
 def test_import_provider_sdk_returns_module_when_installed():

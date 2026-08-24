@@ -176,8 +176,18 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
 ## Test coverage gaps
 
 - [x] `_describe_anthropic`/`_describe_openai` mocked and tested (2026-08-24, alongside #6).
-      `_describe_ollama` still has zero coverage — lower priority, its response shape (plain
-      dict) doesn't share the "unpacking assumptions" bug class #6 fixed for the other two.
+      `_describe_ollama` closed 2026-08-24 (later session pass): turned out `response["message"]
+      ["content"]` isn't plain-dict indexing as originally assumed — `ollama.chat()` returns a
+      `ChatResponse`/`Message` pair (Pydantic models with `__getitem__` for backward-compat dict
+      access), verified directly against the installed SDK (0.6.2) before writing the test, not
+      assumed. 3 new tests: return-value + call-argument mocked tests, plus a
+      `test_ollama_response_shape_matches_our_assumptions` structural guard matching the pattern
+      already used for anthropic/openai. Also fixed a related gap while here: `pyproject.toml`'s
+      `dev` extra only pulled in `screenwright[anthropic,openai]`, not `ollama` — these new
+      tests would have passed locally (ollama was installed as a leftover from earlier session
+      work) but failed in a fresh CI install. Switched `dev` to depend on `screenwright[vision]`
+      (all three providers) instead of listing two of three individually.
+      **This closes the last item in the "Test coverage gaps" section — fully done.**
 - [x] MCP server test coverage — `_resolve_output` (#9), `describe_screenshot`, `capture_url`
       (incl. its path-traversal rejection through the real tool, not just `_resolve_capture_path`
       directly), `capture_element`, `list_flows` (with/without a config), `_resolve_config`'s
