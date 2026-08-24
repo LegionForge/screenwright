@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -9,6 +10,7 @@ from typing import Optional
 from playwright.async_api import Browser, BrowserContext, Page, async_playwright
 
 from screenwright.config import (
+    ENV_REF_RE,
     CaptureStep,
     CheckStep,
     ClickStep,
@@ -21,6 +23,24 @@ from screenwright.config import (
     SelectStep,
     WaitStep,
 )
+
+
+def _resolve_fill_value(value: str) -> str:
+    """Resolve a ${ENV_VAR} reference; pass through any other value as a literal.
+
+    Only whole-value references are supported (``value = "${API_TOKEN}"``),
+    not partial interpolation inside a longer string — that keeps the syntax
+    unambiguous and the failure mode (unset var) a clean error rather than a
+    string with a literal "${...}" typed into the page.
+    """
+    match = ENV_REF_RE.fullmatch(value)
+    if match is None:
+        return value
+    var_name = match.group(1)
+    resolved = os.environ.get(var_name)
+    if resolved is None:
+        raise ValueError(f"Environment variable {var_name!r} is not set.")
+    return resolved
 
 
 @dataclass
@@ -138,7 +158,7 @@ async def run_flow(
                     )
 
                 elif isinstance(step, FillStep):
-                    await page.fill(step.selector, step.value)
+                    await page.fill(step.selector, _resolve_fill_value(step.value))
 
                 elif isinstance(step, ClickStep):
                     await page.click(step.selector)

@@ -19,6 +19,23 @@ from screenwright.config import (
 )
 
 
+def test_fill_step_secret_requires_env_ref():
+    with pytest.raises(ValidationError):
+        FillStep(action="fill", selector="#password", value="hunter2", secret=True)
+
+
+def test_fill_step_secret_accepts_env_ref():
+    step = FillStep(action="fill", selector="#password", value="${DB_PASSWORD}", secret=True)
+    assert step.value == "${DB_PASSWORD}"
+
+
+def test_fill_step_non_secret_accepts_literal_or_env_ref():
+    assert FillStep(action="fill", selector="#email", value="demo@example.com").value == (
+        "demo@example.com"
+    )
+    assert FillStep(action="fill", selector="#email", value="${EMAIL}").value == "${EMAIL}"
+
+
 def write_toml(tmp_path: Path, content: str) -> Path:
     p = tmp_path / "config.toml"
     p.write_text(textwrap.dedent(content))

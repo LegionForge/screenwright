@@ -44,11 +44,23 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       URL-safe — no separate encoding needed, noted with a comment in `output.py` so a future
       change to the allowed charset doesn't silently reopen this. Tests: 4 unit tests on
       `_escape_markdown_cell` + `test_write_flow_output_escapes_malicious_description`.)*
-- [ ] **#4 [medium-high] No env-var interpolation for `fill` values** — `config.py:31-34`,
+- [x] **#4 [medium-high] No env-var interpolation for `fill` values** — `config.py:31-34`,
       `capture.py:138`. Only way to script a login today is a plaintext credential in TOML next
       to the code, which then also gets screenshotted and shipped to a vision API. Fix:
       `value = "${ENV_VAR}"` resolution at load time (never render resolved values in
       logs/errors) + a `secret = true` flag on `FillStep` that masks/blocks captures.
+      *(fixed 2026-08-24: `FillStep.secret` (default `false`) + a model validator requiring
+      `value` to match `${ENV_VAR}` whenever `secret = true` — rejects a literal credential at
+      config-load time rather than silently accepting it. `capture.py::_resolve_fill_value`
+      resolves the reference at the point of use (not eagerly at config load), raising a clean
+      `ValueError` naming the missing var — which the #1 fix's per-step try/except already turns
+      into a `FlowResult.error` instead of a crash. Deliberately did NOT implement "masks/blocks
+      captures" — that needs UI-level field masking or capture-skipping, which is a bigger,
+      separate feature (see backlog feature #7, deterministic-capture helpers); this fix only
+      guarantees the *config* never holds a plaintext secret, documented as a real, narrower
+      scope in README/wiki. README gained a "Credentials in Login Flows" section; wiki's
+      Flow-Reference page synced. Tests: 3 config-validator tests, 3 `_resolve_fill_value` unit
+      tests, 2 `run_flow` integration tests (resolves + reports missing var clearly).)*
 - [ ] **#5 [medium] `describe()` failures abort an entire run mid-way** — `cli.py:74-77`. One
       API blip (429/timeout) raises out of the loop before `write_flow_output` — screenshots are
       on disk but no index.md, no subsequent flows run. Fix: per-capture try/except (leave

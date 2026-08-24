@@ -4,10 +4,26 @@ import shutil
 
 import pytest
 
-from screenwright.capture import capture_single_url, run_flow
+from screenwright.capture import _resolve_fill_value, capture_single_url, run_flow
 from screenwright.config import load_config
 
 pytestmark = pytest.mark.integration
+
+
+def test_resolve_fill_value_passes_through_literals():
+    assert _resolve_fill_value("demo@example.com") == "demo@example.com"
+
+
+def test_resolve_fill_value_resolves_env_ref(monkeypatch):
+    monkeypatch.setenv("SCREENWRIGHT_TEST_VAR", "resolved-secret")
+    assert _resolve_fill_value("${SCREENWRIGHT_TEST_VAR}") == "resolved-secret"
+
+
+def test_resolve_fill_value_raises_on_unset_env_var(monkeypatch):
+    monkeypatch.delenv("SCREENWRIGHT_TEST_VAR_UNSET", raising=False)
+    with pytest.raises(ValueError, match="SCREENWRIGHT_TEST_VAR_UNSET"):
+        _resolve_fill_value("${SCREENWRIGHT_TEST_VAR_UNSET}")
+
 
 _HTML = """
 <!doctype html>
@@ -272,6 +288,81 @@ def test_run_flow_with_recording_finalizes_video_on_step_failure(tmp_path):
     assert result.video_path is not None
     assert result.video_path.exists()
     assert result.video_path.stat().st_size > 0
+
+
+def test_run_flow_fill_resolves_env_var_reference(tmp_path, monkeypatch):
+    monkeypatch.setenv("SCREENWRIGHT_TEST_EMAIL", "resolved@example.com")
+    url = _write_page(tmp_path)
+    toml_path = tmp_path / "config.toml"
+    toml_path.write_text(
+        f"""
+        [screenwright]
+        base_url = ""
+
+        [[flows]]
+        name = "login-env"
+
+          [[flows.steps]]
+          action = "navigate"
+          url = "{url}"
+
+          [[flows.steps]]
+          action = "fill"
+          selector = "#email"
+          value = "${{SCREENWRIGHT_TEST_EMAIL}}"
+          secret = true
+
+          [[flows.steps]]
+          action = "capture"
+          name = "login-filled"
+          selector = "#login"
+        """
+    )
+    cfg = load_config(toml_path)
+    flow = cfg.get_flow("login-env")
+    output_root = tmp_path / "output"
+
+    import asyncio
+
+    result = asyncio.run(run_flow(flow, cfg, output_root))
+
+    assert result.error is None
+    assert len(result.captures) == 1
+
+
+def test_run_flow_fill_reports_clear_error_on_unset_env_var(tmp_path, monkeypatch):
+    monkeypatch.delenv("SCREENWRIGHT_TEST_MISSING_VAR", raising=False)
+    url = _write_page(tmp_path)
+    toml_path = tmp_path / "config.toml"
+    toml_path.write_text(
+        f"""
+        [screenwright]
+        base_url = ""
+
+        [[flows]]
+        name = "login-missing-env"
+
+          [[flows.steps]]
+          action = "navigate"
+          url = "{url}"
+
+          [[flows.steps]]
+          action = "fill"
+          selector = "#email"
+          value = "${{SCREENWRIGHT_TEST_MISSING_VAR}}"
+        """
+    )
+    cfg = load_config(toml_path)
+    flow = cfg.get_flow("login-missing-env")
+    output_root = tmp_path / "output"
+
+    import asyncio
+
+    result = asyncio.run(run_flow(flow, cfg, output_root))
+
+    assert result.error is not None
+    assert "SCREENWRIGHT_TEST_MISSING_VAR" in result.error
+    assert result.failed_step_index == 1
 
 
 def test_run_flow_check_and_select_steps(tmp_path):

@@ -5,11 +5,12 @@ import tomllib
 from pathlib import Path
 from typing import Annotated, Literal, Union
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 _DEFAULT_DESCRIBE_PROMPT = "Describe this UI screenshot for documentation purposes."
 
 _SAFE_NAME_RE = re.compile(r"^[A-Za-z0-9._-]+$")
+ENV_REF_RE = re.compile(r"^\$\{([A-Za-z_][A-Za-z0-9_]*)\}$")
 
 
 def validate_safe_name(name: str) -> str:
@@ -54,6 +55,22 @@ class FillStep(BaseModel):
     action: Literal["fill"]
     selector: str
     value: str
+    secret: bool = False
+    """If true, `value` must be an ${ENV_VAR} reference, not a literal — this
+    is a load-time nudge against committing plaintext credentials next to
+    the flow that uses them. The value is still resolved and typed into the
+    page like any other fill (Screenwright doesn't intercept what the vision
+    model then sees in a post-fill screenshot — mask the field in the UI
+    itself, or skip capturing that step, if the screenshot must not show it).
+    """
+
+    @model_validator(mode="after")
+    def _secret_requires_env_ref(self) -> "FillStep":
+        if self.secret and not ENV_REF_RE.fullmatch(self.value):
+            raise ValueError(
+                "secret = true requires value to be an ${ENV_VAR} reference, not a literal string."
+            )
+        return self
 
 
 class ClickStep(BaseModel):

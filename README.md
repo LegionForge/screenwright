@@ -253,7 +253,7 @@ does — check your client's current docs if one of the snippets above doesn't c
 |--------|----------------|-----------------|-------------|
 | `navigate` | `url` | `wait_until` (`load` default, or `domcontentloaded`/`networkidle`/`commit`) | Navigate to URL (relative to `base_url` if starts with `/`). Use `domcontentloaded` for apps with persistent websocket/SSE connections (live dashboards, log viewers) — `networkidle` will time out on them since the connection never goes idle. |
 | `capture` | `name` | `selector` | Screenshot the page or a CSS-selected element |
-| `fill` | `selector`, `value` | — | Fill an input field |
+| `fill` | `selector`, `value` | `secret` (bool, default `false`) | Fill an input field. `value` may be `${ENV_VAR}` to pull from the environment instead of a literal — required (not optional) when `secret = true`, so a credential can't accidentally end up committed as plaintext next to the flow that uses it. |
 | `click` | `selector` | — | Click an element |
 | `wait` | `ms` | — | Wait N milliseconds |
 | `hover` | `selector` | — | Hover over an element (triggers `:hover` CSS / `mouseenter`/`mouseover` — capture right after to catch hover states, tooltips, CSS-driven dropdown menus) |
@@ -287,6 +287,31 @@ live Chrome extension like Claude-in-Chrome) can screenshot that open popup. `se
 Custom combobox widgets built from regular DOM elements (React-select, MUI Select, Radix,
 Headless UI, etc.) don't have this limitation — they render as normal elements, so `click` +
 `capture` (or `hover` + `capture` for CSS-driven menus) captures the open state fine.
+
+---
+
+## Credentials in Login Flows
+
+If a flow needs to fill a password, API token, or anything else sensitive, don't put the literal
+value in the TOML:
+
+```toml
+[[flows.steps]]
+action = "fill"
+selector = "#password"
+value = "${DB_PASSWORD}"   # resolved from the environment at run time
+secret = true               # required (not optional) once secret = true
+```
+
+`secret = true` requires `value` to be an `${ENV_VAR}` reference — Screenwright refuses to load
+a config where a step is marked `secret` but the value is a literal string, so a real credential
+can't accidentally end up committed in plaintext next to the flow that uses it. `${ENV_VAR}`
+interpolation also works on non-secret `fill` steps, if you just want a dynamic value without the
+stricter check.
+
+This only controls what's *typed into the page* — it does not redact what a subsequent
+`capture` step sees. If a screenshot of that field must not show the value, mask it in the UI
+itself or don't add a `capture` step until after the field is cleared/hidden.
 
 ---
 
