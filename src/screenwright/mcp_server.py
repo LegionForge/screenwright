@@ -108,7 +108,8 @@ async def run_flow_tool(
         output_dir: Override the output directory from the config.
 
     Returns:
-        List of absolute paths to all captured PNG files.
+        List of absolute paths to all captured PNG files, followed by the .webm
+        recording path if the flow has `record = true` set.
     """
     cfg = _resolve_config(config_path)
     flow_def = cfg.get_flow(flow_name)
@@ -118,7 +119,10 @@ async def run_flow_tool(
 
     out_root = _resolve_output(cfg, output_dir)
     result: FlowResult = await run_flow(flow_def, cfg, out_root)
-    return [str(c.path) for c in result.captures]
+    paths = [str(c.path) for c in result.captures]
+    if result.video_path is not None:
+        paths.append(str(result.video_path))
+    return paths
 
 
 @mcp.tool()

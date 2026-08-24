@@ -33,6 +33,14 @@ def _flow_index_md(flow_result: FlowResult) -> str:
             desc = ""
         lines.append(f"| {img_ref} | {desc} |")
     lines.append("")
+
+    if flow_result.video_mp4_path is not None:
+        lines.append(f"[Screen recording (mp4)]({flow_result.video_mp4_path.name})")
+        lines.append("")
+    elif flow_result.video_path is not None:
+        lines.append(f"[Screen recording (webm)]({flow_result.video_path.name})")
+        lines.append("")
+
     return "\n".join(lines)
 
 

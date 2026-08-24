@@ -85,10 +85,13 @@ def run(
     write_root_readme(all_results, output_root)
 
     total_captures = sum(len(r.captures) for r in all_results)
+    total_videos = sum(1 for r in all_results if r.video_path is not None)
     console.print(
         f"\n[green]Captured {total_captures} screenshot(s) across "
         f"{len(all_results)} flow(s).[/green]"
     )
+    if total_videos:
+        console.print(f"[green]Recorded {total_videos} video(s).[/green]")
     console.print(f"Output: [bold]{output_root}[/bold]")
 
 

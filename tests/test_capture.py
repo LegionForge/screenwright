@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import shutil
+
 import pytest
 
 from screenwright.capture import capture_single_url, run_flow
@@ -17,6 +19,11 @@ _HTML = """
     <input id="email" type="email">
     <button id="submit-btn" type="submit">Sign In</button>
   </form>
+  <input id="remember-me" type="checkbox">
+  <select id="country">
+    <option value="us">United States</option>
+    <option value="ca">Canada</option>
+  </select>
 </body>
 </html>
 """
@@ -107,3 +114,149 @@ def test_run_flow_executes_steps_and_produces_captures(tmp_path):
     assert result.captures[0].path.exists()
     assert result.captures[1].capture_name == "login-filled"
     assert result.captures[1].path.exists()
+
+
+def test_run_flow_with_recording_produces_video(tmp_path):
+    url = _write_page(tmp_path)
+    toml_path = tmp_path / "config.toml"
+    toml_path.write_text(
+        f"""
+        [screenwright]
+        base_url = ""
+
+        [[flows]]
+        name = "demo"
+        record = true
+
+          [[flows.steps]]
+          action = "navigate"
+          url = "{url}"
+
+          [[flows.steps]]
+          action = "fill"
+          selector = "#email"
+          value = "test@example.com"
+        """
+    )
+    cfg = load_config(toml_path)
+    flow = cfg.get_flow("demo")
+    output_root = tmp_path / "output"
+
+    import asyncio
+
+    result = asyncio.run(run_flow(flow, cfg, output_root))
+
+    assert result.video_path is not None
+    assert result.video_path.name == "demo.webm"
+    assert result.video_path.exists()
+    assert result.video_path.stat().st_size > 0
+
+
+def test_run_flow_without_recording_has_no_video(tmp_path):
+    url = _write_page(tmp_path)
+    toml_path = tmp_path / "config.toml"
+    toml_path.write_text(
+        f"""
+        [screenwright]
+        base_url = ""
+
+        [[flows]]
+        name = "no-record"
+
+          [[flows.steps]]
+          action = "navigate"
+          url = "{url}"
+
+          [[flows.steps]]
+          action = "capture"
+          name = "shot"
+        """
+    )
+    cfg = load_config(toml_path)
+    flow = cfg.get_flow("no-record")
+    output_root = tmp_path / "output"
+
+    import asyncio
+
+    result = asyncio.run(run_flow(flow, cfg, output_root))
+
+    assert result.video_path is None
+
+
+def test_run_flow_check_and_select_steps(tmp_path):
+    url = _write_page(tmp_path)
+    toml_path = tmp_path / "config.toml"
+    toml_path.write_text(
+        f"""
+        [screenwright]
+        base_url = ""
+
+        [[flows]]
+        name = "interactive"
+
+          [[flows.steps]]
+          action = "navigate"
+          url = "{url}"
+
+          [[flows.steps]]
+          action = "check"
+          selector = "#remember-me"
+
+          [[flows.steps]]
+          action = "select"
+          selector = "#country"
+          value = "ca"
+
+          [[flows.steps]]
+          action = "hover"
+          selector = "#submit-btn"
+
+          [[flows.steps]]
+          action = "capture"
+          name = "interactive-state"
+        """
+    )
+    cfg = load_config(toml_path)
+    flow = cfg.get_flow("interactive")
+    output_root = tmp_path / "output"
+
+    import asyncio
+
+    result = asyncio.run(run_flow(flow, cfg, output_root))
+
+    assert len(result.captures) == 1
+    assert result.captures[0].path.exists()
+
+
+@pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="requires ffmpeg on PATH")
+def test_run_flow_with_mp4_conversion(tmp_path):
+    url = _write_page(tmp_path)
+    toml_path = tmp_path / "config.toml"
+    toml_path.write_text(
+        f"""
+        [screenwright]
+        base_url = ""
+
+        [[flows]]
+        name = "demo-mp4"
+        record = true
+        record_mp4 = true
+
+          [[flows.steps]]
+          action = "navigate"
+          url = "{url}"
+        """
+    )
+    cfg = load_config(toml_path)
+    flow = cfg.get_flow("demo-mp4")
+    output_root = tmp_path / "output"
+
+    import asyncio
+
+    result = asyncio.run(run_flow(flow, cfg, output_root))
+
+    assert result.video_path is not None
+    assert result.video_mp4_path is not None
+    assert result.video_mp4_path.name == "demo-mp4.mp4"
+    assert result.video_mp4_path.exists()
+    assert result.video_mp4_path.stat().st_size > 0

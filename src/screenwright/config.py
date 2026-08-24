@@ -19,6 +19,7 @@ class VisionConfig(BaseModel):
 class NavigateStep(BaseModel):
     action: Literal["navigate"]
     url: str
+    wait_until: Literal["load", "domcontentloaded", "networkidle", "commit"] = "load"
 
 
 class CaptureStep(BaseModel):
@@ -54,8 +55,30 @@ class PressStep(BaseModel):
     key: str
 
 
+class CheckStep(BaseModel):
+    action: Literal["check"]
+    selector: str
+    checked: bool = True
+
+
+class SelectStep(BaseModel):
+    action: Literal["select"]
+    selector: str
+    value: str
+
+
 Step = Annotated[
-    Union[NavigateStep, CaptureStep, FillStep, ClickStep, WaitStep, HoverStep, PressStep],
+    Union[
+        NavigateStep,
+        CaptureStep,
+        FillStep,
+        ClickStep,
+        WaitStep,
+        HoverStep,
+        PressStep,
+        CheckStep,
+        SelectStep,
+    ],
     Field(discriminator="action"),
 ]
 
@@ -63,6 +86,10 @@ Step = Annotated[
 class Flow(BaseModel):
     name: str
     steps: list[Step] = []
+    record: bool = False
+    record_width: int = 1280
+    record_height: int = 720
+    record_mp4: bool = False
 
 
 class ScreenwrightConfig(BaseModel):

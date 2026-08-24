@@ -162,13 +162,71 @@ For Claude Code, add to `.claude/settings.json`:
 
 | Action | Required fields | Optional fields | Description |
 |--------|----------------|-----------------|-------------|
-| `navigate` | `url` | — | Navigate to URL (relative to `base_url` if starts with `/`) |
+| `navigate` | `url` | `wait_until` (`load` default, or `domcontentloaded`/`networkidle`/`commit`) | Navigate to URL (relative to `base_url` if starts with `/`). Use `domcontentloaded` for apps with persistent websocket/SSE connections (live dashboards, log viewers) — `networkidle` will time out on them since the connection never goes idle. |
 | `capture` | `name` | `selector` | Screenshot the page or a CSS-selected element |
 | `fill` | `selector`, `value` | — | Fill an input field |
 | `click` | `selector` | — | Click an element |
 | `wait` | `ms` | — | Wait N milliseconds |
-| `hover` | `selector` | — | Hover over an element |
+| `hover` | `selector` | — | Hover over an element (triggers `:hover` CSS / `mouseenter`/`mouseover` — capture right after to catch hover states, tooltips, CSS-driven dropdown menus) |
 | `press` | `selector`, `key` | — | Press a keyboard key |
+| `check` | `selector` | `checked` (bool, default `true`) | Check or uncheck a checkbox/radio input |
+| `select` | `selector`, `value` | — | Choose an option in a native `<select>` by its `value` attribute |
+
+---
+
+## Capturing Interactive UI States
+
+`hover`, `check`, and `select` exist specifically to capture non-default UI states for docs —
+a hovered button/tooltip, a checked checkbox, a selected dropdown option — by driving the real
+DOM state and then following with a `capture` step. Typical pattern:
+
+```toml
+[[flows.steps]]
+action = "hover"
+selector = "#nav-menu-trigger"
+
+[[flows.steps]]
+action = "capture"
+name = "menu-hover-state"
+```
+
+**One hard limitation, not specific to Screenwright:** native OS-rendered `<select>` dropdown
+popups (the list that drops down when you click a plain HTML select) are drawn by the operating
+system, not the page's DOM — no browser automation tool (Playwright, Puppeteer, Selenium, or a
+live Chrome extension like Claude-in-Chrome) can screenshot that open popup. `select` sets the
+*chosen* value and lets you capture the resulting state, but not the open-popup moment itself.
+Custom combobox widgets built from regular DOM elements (React-select, MUI Select, Radix,
+Headless UI, etc.) don't have this limitation — they render as normal elements, so `click` +
+`capture` (or `hover` + `capture` for CSS-driven menus) captures the open state fine.
+
+---
+
+## Video Recording
+
+Set `record = true` on a flow to record the entire flow as a `.webm` video alongside its screenshots:
+
+```toml
+[[flows]]
+name = "signup-demo"
+record       = true
+record_width  = 1280   # optional, default 1280
+record_height = 720    # optional, default 720
+record_mp4    = true   # optional — also convert to mp4 (requires ffmpeg on PATH)
+
+  [[flows.steps]]
+  action = "navigate"
+  url    = "/signup"
+
+  # ...fill, click, wait, capture steps as usual
+```
+
+Recording is scoped to the whole flow (Playwright ties video capture to a browser context,
+not individual steps), so it can't be started/stopped partway through a flow — split into
+multiple flows if you only want part of a sequence recorded.
+
+`record_mp4` shells out to `ffmpeg` (`brew install ffmpeg` on macOS) to transcode the `.webm`
+to H.264 `.mp4` after recording finishes. Without it, output stays `.webm` — fine for GitHub
+READMEs and most players, but not for direct upload to LinkedIn/YouTube (see below).
 
 ---
 

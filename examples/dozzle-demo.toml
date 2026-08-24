@@ -1,0 +1,19 @@
+[screenwright]
+output_dir      = "docs/screenshots"
+base_url        = "http://localhost:8082"
+vision_describe = false
+
+[[flows]]
+name = "dozzle-home"
+
+  [[flows.steps]]
+  action = "navigate"
+  url    = "/"
+
+  [[flows.steps]]
+  action = "wait"
+  ms     = 1000
+
+  [[flows.steps]]
+  action = "capture"
+  name   = "container-list"

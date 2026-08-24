@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "screenwright": {
+      "command": ".venv/bin/screenwright-mcp",
+      "env": {
+        "SCREENWRIGHT_CONFIG": "examples/dozzle-demo.toml"
+      }
+    }
+  }
+}
