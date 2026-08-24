@@ -78,6 +78,11 @@ async def capture_url(
     name: str,
     selector: Optional[str] = None,
     output_dir: Optional[str] = None,
+    wait_until: Literal["load", "domcontentloaded", "networkidle", "commit"] = "load",
+    timeout_ms: int = 30000,
+    viewport_width: int = 1280,
+    viewport_height: int = 720,
+    animations: Literal["disabled", "allow"] = "disabled",
 ) -> str:
     """
     Navigate to a URL and capture a screenshot.
@@ -87,6 +92,16 @@ async def capture_url(
         name: Filename stem for the PNG (no extension needed).
         selector: Optional CSS selector — captures only that element instead of full page.
         output_dir: Where to save the PNG. Defaults to a temp directory.
+        wait_until: Playwright navigation wait condition. Default 'load'. Use
+            'networkidle' cautiously — a page with a persistent websocket/SSE
+            connection (live dashboards, log viewers, chat UIs) never goes
+            network-idle and will hang until timeout_ms.
+        timeout_ms: Navigation timeout in milliseconds. Default 30000 — raise this for a
+            slow-loading page instead of retrying the call.
+        viewport_width: Default 1280 — e.g. 390 for a mobile-sized capture.
+        viewport_height: Default 720.
+        animations: 'disabled' (default) freezes CSS animations/transitions for a
+            deterministic screenshot; 'allow' captures whatever frame is mid-animation.
 
     Returns:
         Absolute path to the saved PNG file.
@@ -95,7 +110,16 @@ async def capture_url(
     out_root.mkdir(parents=True, exist_ok=True)
     out_path = _resolve_capture_path(out_root, name)
 
-    saved = await capture_single_url(url, out_path, selector)
+    saved = await capture_single_url(
+        url,
+        out_path,
+        selector,
+        wait_until=wait_until,
+        timeout_ms=timeout_ms,
+        viewport_width=viewport_width,
+        viewport_height=viewport_height,
+        animations=animations,
+    )
     return str(saved)
 
 
@@ -105,6 +129,11 @@ async def capture_element(
     selector: str,
     name: str,
     output_dir: Optional[str] = None,
+    wait_until: Literal["load", "domcontentloaded", "networkidle", "commit"] = "load",
+    timeout_ms: int = 30000,
+    viewport_width: int = 1280,
+    viewport_height: int = 720,
+    animations: Literal["disabled", "allow"] = "disabled",
 ) -> str:
     """
     Navigate to a URL and capture a specific DOM element.
@@ -114,6 +143,14 @@ async def capture_element(
         selector: CSS selector for the element to capture.
         name: Filename stem for the PNG.
         output_dir: Where to save the PNG.
+        wait_until: Playwright navigation wait condition. Default 'load'. Use
+            'networkidle' cautiously — a page with a persistent websocket/SSE
+            connection never goes network-idle and will hang until timeout_ms.
+        timeout_ms: Navigation timeout in milliseconds. Default 30000.
+        viewport_width: Default 1280 — e.g. 390 for a mobile-sized capture.
+        viewport_height: Default 720.
+        animations: 'disabled' (default) freezes CSS animations/transitions for a
+            deterministic screenshot; 'allow' captures whatever frame is mid-animation.
 
     Returns:
         Absolute path to the saved PNG file.
@@ -122,7 +159,16 @@ async def capture_element(
     out_root.mkdir(parents=True, exist_ok=True)
     out_path = _resolve_capture_path(out_root, name)
 
-    saved = await capture_single_url(url, out_path, selector)
+    saved = await capture_single_url(
+        url,
+        out_path,
+        selector,
+        wait_until=wait_until,
+        timeout_ms=timeout_ms,
+        viewport_width=viewport_width,
+        viewport_height=viewport_height,
+        animations=animations,
+    )
     return str(saved)
 
 

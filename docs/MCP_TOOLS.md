@@ -38,6 +38,11 @@ Navigate to a URL and capture a screenshot. No config file needed.
 | `name` | string | yes | Filename stem for the PNG (no extension) |
 | `selector` | string | no | CSS selector — captures only that element instead of full page |
 | `output_dir` | string | no | Where to save the PNG. Defaults to a temp directory |
+| `wait_until` | `"load" \| "domcontentloaded" \| "networkidle" \| "commit"` | no | Default `"load"`. Use `"networkidle"` cautiously — a page with a persistent websocket/SSE connection never goes network-idle and hangs until `timeout_ms` |
+| `timeout_ms` | int | no | Navigation timeout in milliseconds. Default `30000` |
+| `viewport_width` | int | no | Default `1280` — e.g. `390` for a mobile-sized capture |
+| `viewport_height` | int | no | Default `720` |
+| `animations` | `"disabled" \| "allow"` | no | Default `"disabled"` — freezes CSS animations for a deterministic screenshot |
 
 **Returns:** `string` — absolute path to the saved PNG.
 
@@ -56,6 +61,11 @@ Same as `capture_url` but `selector` is required — captures one DOM element.
 | `selector` | string | yes | CSS selector for the element |
 | `name` | string | yes | Filename stem for the PNG |
 | `output_dir` | string | no | Where to save the PNG |
+| `wait_until` | `"load" \| "domcontentloaded" \| "networkidle" \| "commit"` | no | Same as `capture_url` |
+| `timeout_ms` | int | no | Same as `capture_url` |
+| `viewport_width` | int | no | Same as `capture_url` |
+| `viewport_height` | int | no | Same as `capture_url` |
+| `animations` | `"disabled" \| "allow"` | no | Same as `capture_url` |
 
 **Returns:** `string` — absolute path to the saved PNG.
 

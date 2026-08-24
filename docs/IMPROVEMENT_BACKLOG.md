@@ -576,6 +576,26 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       confirming the already-captured screenshot survives and the failure is reported cleanly,
       not raised.)*
 
+- [x] **#38 [medium, small feature gap, found 2026-08-24 by fresh review] `capture_url`/
+      `capture_element` never wired through `capture_single_url`'s own configurability** —
+      `capture_single_url` has long supported `wait_until`/`timeout_ms`/`viewport_width`/
+      `viewport_height`/`animations` (shipped as part of finding #10 earlier this session), but
+      both MCP tool wrappers called it with only `url, out_path, selector`, silently discarding
+      an agent's ability to request a longer timeout for a slow page, a mobile-sized viewport,
+      or unfrozen animations — all real, existing capabilities of the underlying function that
+      simply weren't exposed on the tool surface. *(fixed 2026-08-24: added the same five params
+      to both `capture_url`/`capture_element` signatures, typed as `Literal`s (matching #24's
+      discoverability lesson) rather than bare `str`, and passed them through to
+      `capture_single_url`. Caught and fixed a mistake in the fix itself before shipping: an
+      early edit accidentally dropped `capture_element`'s `return str(saved)` line entirely —
+      the same class of accidental-truncation mistake made once already this session — caught by
+      re-reading the file structure immediately after the edit rather than assuming it landed
+      cleanly. 2 new tests: `test_capture_url_respects_custom_viewport` proves an actual pixel
+      dimension change (the strongest possible proof the wiring works, not just that the param
+      exists); `test_capture_element_accepts_new_capture_params` catches a wiring typo via
+      `TypeError` even though an element-scoped capture's own dimensions don't move with
+      viewport the way a full-page capture's do. `README.md`/`docs/MCP_TOOLS.md` updated.)*
+
 ## Test coverage gaps
 
 - [x] `_describe_anthropic`/`_describe_openai` mocked and tested (2026-08-24, alongside #6).

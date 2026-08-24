@@ -247,3 +247,13 @@ sequenceDiagram
   `cli.py`'s outer `write_root_readme` call (after all flows finish) got the same treatment, one
   level up: a clean `console.print` + `typer.Exit(1)` instead of a raw traceback, since a failure
   there happens after every flow already succeeded and shouldn't look like a step-level failure.
+- **`capture_url`/`capture_element` never wired through `capture_single_url`'s own
+  configurability.** `capture_single_url` has long supported `wait_until`/`timeout_ms`/
+  `viewport_width`/`viewport_height`/`animations`, but the two MCP tool wrappers called it with
+  only three positional args (`url, out_path, selector`), always falling back to hardcoded
+  defaults regardless of what an agent needed — a slow-loading page had no way to get a longer
+  timeout, and a mobile-viewport capture wasn't possible via these tools at all, even though the
+  underlying capability already existed. Fixed by adding the same five params to both tool
+  signatures and passing them straight through to `capture_single_url`, typed as `Literal`s
+  where `capture_single_url`'s own signature uses `str` — matching the discoverability lesson
+  from #24 (a bare `str` param exposes no valid-value hints in the MCP schema an agent sees).

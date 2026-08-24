@@ -404,6 +404,16 @@ def test_describe_screenshot_returns_plain_description(tmp_path, monkeypatch):
 
 
 @pytest.mark.integration
+def _png_dimensions(path):
+    # PNG signature (8 bytes) + IHDR chunk length/type (8 bytes), then
+    # width/height as big-endian uint32 — avoids adding an image-library
+    # dependency just to assert a screenshot's viewport size in tests.
+    data = path.read_bytes()
+    width = int.from_bytes(data[16:20], "big")
+    height = int.from_bytes(data[20:24], "big")
+    return width, height
+
+
 def test_capture_url_full_page(tmp_path):
     import asyncio
 
@@ -413,6 +423,63 @@ def test_capture_url_full_page(tmp_path):
     saved = asyncio.run(capture_url(url, "homepage", output_dir=str(out_dir)))
 
     assert Path(saved) == out_dir / "homepage.png"
+    assert Path(saved).exists()
+    assert Path(saved).stat().st_size > 0
+
+
+def test_capture_url_respects_custom_viewport(tmp_path):
+    # capture_single_url has long supported timeout_ms/viewport_width/
+    # viewport_height/animations, but capture_url never wired them through
+    # — always used capture_single_url's hardcoded defaults regardless of
+    # what an agent asked for. This proves the wiring, not just that the
+    # param exists: a real behavioral difference in the output.
+    import asyncio
+
+    url = _write_page(tmp_path)
+    out_dir = tmp_path / "out"
+
+    saved = asyncio.run(
+        capture_url(
+            url,
+            "mobile",
+            output_dir=str(out_dir),
+            viewport_width=390,
+            viewport_height=844,
+        )
+    )
+
+    width, height = _png_dimensions(Path(saved))
+    assert width == 390
+    assert height == 844
+
+
+def test_capture_element_accepts_new_capture_params(tmp_path):
+    # Same wiring as capture_url, for capture_element. An element-scoped
+    # screenshot's own pixel dimensions don't move with viewport_width the
+    # way a full-page capture's do, so this can't prove a visible pixel
+    # difference the way test_capture_url_respects_custom_viewport does —
+    # it still catches a wiring typo (a mismatched kwarg name would raise
+    # a TypeError here), since this calls the identical capture_single_url
+    # wiring capture_url's own test already proves takes effect.
+    import asyncio
+
+    url = _write_page(tmp_path)
+    out_dir = tmp_path / "out"
+
+    saved = asyncio.run(
+        capture_element(
+            url,
+            "#content",
+            "content-shot",
+            output_dir=str(out_dir),
+            wait_until="domcontentloaded",
+            timeout_ms=15000,
+            viewport_width=600,
+            viewport_height=400,
+            animations="allow",
+        )
+    )
+
     assert Path(saved).exists()
     assert Path(saved).stat().st_size > 0
 

@@ -270,8 +270,8 @@ does — check your client's current docs if one of the snippets above doesn't c
 
 | Tool | Description |
 |------|-------------|
-| `capture_url(url, name, selector?)` | Capture full page or element at a URL |
-| `capture_element(url, selector, name)` | Capture a specific DOM element |
+| `capture_url(url, name, selector?, output_dir?, wait_until?, timeout_ms?, viewport_width?, viewport_height?, animations?)` | Capture full page or element at a URL |
+| `capture_element(url, selector, name, output_dir?, wait_until?, timeout_ms?, viewport_width?, viewport_height?, animations?)` | Capture a specific DOM element |
 | `run_flow_tool(flow_name, config_path?, vision_describe?)` | Execute a named flow from the loaded config. `vision_describe=true` also describes each capture and writes `.json` sidecars, same as the CLI |
 | `list_flows(config_path?)` | List available flow names |
 | `describe_screenshot(screenshot_path, vision_model?)` | Describe a PNG using the vision model |
