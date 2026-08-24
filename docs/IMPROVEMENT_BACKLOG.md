@@ -556,6 +556,26 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       *(fixed 2026-08-24: corrected the docstring, `docs/MCP_TOOLS.md`, and the wiki's
       MCP-Tools-Reference page to name the actual current reasons. No code changed.)*
 
+- [x] **#37 [high, found 2026-08-24 by fresh review — including a self-audit of #34's own new
+      code] `write_flow_output`/`write_root_readme` were the last unguarded write path in the
+      "never raise" chain** — noticed while re-checking #34's own new `run_flow_tool` code: its
+      `write_flow_output(result, out_root)` call was completely unwrapped, so a disk-full,
+      permission-denied, or output-dir-removed-mid-run failure there would crash the whole tool
+      call and discard every already-captured screenshot behind an unhandled exception —
+      contradicting the exact "never raise for capture-related issues" contract #34 itself
+      documents. Checking whether the CLI had the same gap surfaced that it did too: `cli.py`'s
+      `_process_flow` had never wrapped its own `write_flow_output` call either, and the outer
+      `write_root_readme` call (after all flows finish) was unwrapped as well — the same failure
+      mode findings #14/#16/#18 already fixed for other parts of the pipeline, just never closed
+      for the output-writing step specifically. *(fixed 2026-08-24: wrapped both
+      `write_flow_output` call sites (`cli.py::_process_flow`, `mcp_server.py::run_flow_tool`)
+      and appended to `result.error` on failure, matching the established chained-error pattern
+      exactly; wrapped `cli.py`'s outer `write_root_readme` call with a clean
+      `console.print` + `typer.Exit(1)` instead of a raw traceback, since a failure there happens
+      after every flow already succeeded. 3 new tests spanning all three call sites, each
+      confirming the already-captured screenshot survives and the failure is reported cleanly,
+      not raised.)*
+
 ## Test coverage gaps
 
 - [x] `_describe_anthropic`/`_describe_openai` mocked and tested (2026-08-24, alongside #6).

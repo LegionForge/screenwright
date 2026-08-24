@@ -130,6 +130,93 @@ def test_run_exits_nonzero_when_a_flow_fails(tmp_path):
     assert "stopped early" in result.output
 
 
+def test_run_reports_write_flow_output_failure_instead_of_a_raw_traceback(tmp_path, monkeypatch):
+    # A failure writing index.md/.json sidecars (disk full, permission
+    # denied) must not crash the whole run command with an unhandled
+    # exception and lose every already-captured screenshot — it must be
+    # reported the same clean way a step/setup/finalize failure already is.
+    def broken_write_flow_output(_result, _output_root):
+        raise OSError("simulated disk error writing flow output")
+
+    monkeypatch.setattr("screenwright.cli.write_flow_output", broken_write_flow_output)
+
+    html = tmp_path / "page.html"
+    html.write_text(_HTML)
+    url = f"file://{html}"
+
+    toml_path = tmp_path / "config.toml"
+    toml_path.write_text(
+        f"""
+        [screenwright]
+        base_url = ""
+
+        [[flows]]
+        name = "demo"
+
+          [[flows.steps]]
+          action = "navigate"
+          url = "{url}"
+
+          [[flows.steps]]
+          action = "capture"
+          name = "shot"
+        """
+    )
+    output_dir = tmp_path / "out"
+
+    result = runner.invoke(app, ["run", str(toml_path), "--output", str(output_dir)])
+
+    assert result.exit_code == 1
+    assert isinstance(result.exception, SystemExit)
+    assert "stopped early" in result.output
+    assert "simulated disk error" in result.output
+    # The capture itself still succeeded and is still on disk — only the
+    # output-writing step failed.
+    assert (output_dir / "demo" / "shot.png").exists()
+
+
+def test_run_reports_write_root_readme_failure_instead_of_a_raw_traceback(tmp_path, monkeypatch):
+    def broken_write_root_readme(_results, _output_root):
+        raise OSError("simulated disk error writing root README")
+
+    monkeypatch.setattr("screenwright.cli.write_root_readme", broken_write_root_readme)
+
+    html = tmp_path / "page.html"
+    html.write_text(_HTML)
+    url = f"file://{html}"
+
+    toml_path = tmp_path / "config.toml"
+    toml_path.write_text(
+        f"""
+        [screenwright]
+        base_url = ""
+
+        [[flows]]
+        name = "demo"
+
+          [[flows.steps]]
+          action = "navigate"
+          url = "{url}"
+
+          [[flows.steps]]
+          action = "capture"
+          name = "shot"
+        """
+    )
+    output_dir = tmp_path / "out"
+
+    result = runner.invoke(app, ["run", str(toml_path), "--output", str(output_dir)])
+
+    assert result.exit_code == 1
+    assert isinstance(result.exception, SystemExit)
+    assert "Failed to write root README" in result.output
+    assert "simulated disk error" in result.output
+    # The flow itself still succeeded and its own output was still written —
+    # only the root README failed.
+    assert (output_dir / "demo" / "shot.png").exists()
+    assert (output_dir / "demo" / "index.md").exists()
+
+
 @pytest.mark.parametrize("concurrency", [1, 2])
 def test_run_completes_all_flows_at_various_concurrency(tmp_path, concurrency):
     toml_path = _write_two_flow_config(tmp_path)

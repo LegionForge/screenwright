@@ -126,7 +126,16 @@ async def _process_flow(
                         f"{capture.capture_name!r}: {exc}"
                     )
 
-        write_flow_output(result, output_root)
+        try:
+            write_flow_output(result, output_root)
+        except Exception as exc:
+            # A failure writing index.md/.json sidecars (disk full,
+            # permission denied, output_root removed mid-run) must not
+            # crash the whole `run` command and lose every already-
+            # captured screenshot behind an unhandled exception — report
+            # it the same way a step/setup/finalize failure already is.
+            write_error = f"Failed to write flow output: {exc}"
+            result.error = f"{result.error}; {write_error}" if result.error else write_error
 
         changed: list[str] = []
         if check:
@@ -220,7 +229,16 @@ def run(
     outcomes = asyncio.run(_run_flows(flows_to_run, cfg, output_root, concurrency, check))
     all_results = [result for result, _ in outcomes]
 
-    write_root_readme(all_results, output_root)
+    try:
+        write_root_readme(all_results, output_root)
+    except Exception as exc:
+        # A failure here (disk full, permission denied) happens after every
+        # flow already captured successfully — a raw traceback at this
+        # point would be misleading about what actually went wrong. Report
+        # cleanly and still fail the run, since the promised output
+        # (root README indexing every flow) wasn't produced.
+        console.print(f"[red]Failed to write root README:[/red] {exc}")
+        raise typer.Exit(1) from exc
 
     total_captures = sum(len(r.captures) for r in all_results)
     total_videos = sum(1 for r in all_results if r.video_path is not None)

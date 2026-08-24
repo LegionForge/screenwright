@@ -178,7 +178,16 @@ async def run_flow_tool(
                 capture.metadata = await asyncio.to_thread(describe, capture.path, cfg.vision)
             except Exception:
                 pass  # leave metadata unset; output.py/describe_flow already tolerate None
-        write_flow_output(result, out_root)
+        try:
+            write_flow_output(result, out_root)
+        except Exception as exc:
+            # A failure writing index.md/.json sidecars (disk full,
+            # permission denied) must not crash this tool call and lose
+            # every already-captured screenshot behind an unhandled
+            # exception — report it the same way run_flow itself already
+            # reports a step/setup/finalize failure via result.error.
+            write_error = f"Failed to write flow output: {exc}"
+            result.error = f"{result.error}; {write_error}" if result.error else write_error
 
     return {
         "captures": [str(c.path) for c in result.captures],

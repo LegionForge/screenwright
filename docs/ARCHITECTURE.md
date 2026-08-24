@@ -236,3 +236,14 @@ sequenceDiagram
   functions rather than duplicating that logic. A per-capture `describe()` failure is swallowed
   (that capture's sidecar just isn't written), matching `cli.py`'s own per-capture tolerance —
   it does not surface on `result.error`, which stays reserved for step/setup/finalize failures.
+- **`write_flow_output`/`write_root_readme` weren't guarded either — the last unguarded write
+  path in the same "never raise" chain.** Both `cli.py`'s `_process_flow` and the new
+  `run_flow_tool` `vision_describe=true` path call `write_flow_output` after capturing; neither
+  wrapped it. A disk-full, permission-denied, or output-dir-removed-mid-run failure there would
+  crash the whole call with an unhandled exception, discarding every screenshot that had already
+  been captured successfully — the same failure mode #14/#16/#18 already fixed for other parts
+  of the pipeline, just never closed here. Fixed by wrapping both call sites and appending to
+  `result.error` (chained with any earlier error), matching the established pattern exactly.
+  `cli.py`'s outer `write_root_readme` call (after all flows finish) got the same treatment, one
+  level up: a clean `console.print` + `typer.Exit(1)` instead of a raw traceback, since a failure
+  there happens after every flow already succeeded and shouldn't look like a step-level failure.

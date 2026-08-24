@@ -153,6 +153,64 @@ def test_run_flow_tool_vision_describe_writes_metadata_sidecars(tmp_path, monkey
     assert (output_dir / "demo" / "index.md").exists()
 
 
+def test_run_flow_tool_reports_write_flow_output_failure_instead_of_raising(tmp_path, monkeypatch):
+    from screenwright.vision import ScreenshotMetadata
+
+    def fake_describe(image_path, cfg):
+        return ScreenshotMetadata(description="A login form")
+
+    def broken_write_flow_output(_result, _output_root):
+        raise OSError("simulated disk error writing flow output")
+
+    monkeypatch.setattr("screenwright.vision.describe", fake_describe)
+    monkeypatch.setattr("screenwright.output.write_flow_output", broken_write_flow_output)
+
+    html = tmp_path / "page.html"
+    html.write_text("<!doctype html><html><body><h1>hi</h1></body></html>")
+    url = f"file://{html}"
+
+    toml_path = tmp_path / "config.toml"
+    toml_path.write_text(
+        f"""
+        [screenwright]
+        base_url = ""
+
+        [[flows]]
+        name = "demo"
+
+          [[flows.steps]]
+          action = "navigate"
+          url = "{url}"
+
+          [[flows.steps]]
+          action = "capture"
+          name = "shot"
+        """
+    )
+    output_dir = tmp_path / "out"
+
+    import asyncio
+
+    output = asyncio.run(
+        run_flow_tool(
+            "demo",
+            config_path=str(toml_path),
+            output_dir=str(output_dir),
+            vision_describe=True,
+        )
+    )
+
+    # A failure writing output must not raise out of this call — the
+    # already-captured screenshot is still reported, and the write
+    # failure surfaces via the error field, same as any other
+    # step/setup/finalize failure.
+    assert len(output["captures"]) == 1
+    assert output["error"] is not None
+    assert "Failed to write flow output" in output["error"]
+    assert "simulated disk error" in output["error"]
+    assert Path(output["captures"][0]).exists()
+
+
 def test_run_flow_tool_defaults_to_no_vision_describe(tmp_path):
     html = tmp_path / "page.html"
     html.write_text("<!doctype html><html><body><h1>hi</h1></body></html>")
