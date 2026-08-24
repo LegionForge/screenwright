@@ -152,8 +152,10 @@ async def describe_screenshot(
 
     Args:
         screenshot_path: Absolute path to the PNG file.
-        provider: 'anthropic' (requires ANTHROPIC_API_KEY) or 'ollama' (local, no key needed).
-        model: Model name. For anthropic: 'claude-haiku-4-5'. For ollama: 'moondream', 'llava'.
+        provider: 'anthropic' (requires ANTHROPIC_API_KEY), 'openai' (requires OPENAI_API_KEY),
+                  or 'ollama' (local, no key needed).
+        model: Model name. For anthropic: 'claude-haiku-4-5'. For openai: 'gpt-4o-mini'.
+               For ollama: 'moondream', 'llava'.
         structured_metadata: When true, returns a JSON string with description, components,
                               state, title, errors_visible, and accessibility_notes fields.
 

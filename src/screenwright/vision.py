@@ -111,11 +111,41 @@ def _describe_ollama(image_path: Path, cfg: VisionConfig) -> ScreenshotMetadata:
     return _parse_response(response["message"]["content"], cfg.structured_metadata)
 
 
+def _describe_openai(image_path: Path, cfg: VisionConfig) -> ScreenshotMetadata:
+    import openai
+
+    client = openai.OpenAI()
+    prompt = _build_prompt(cfg)
+    image_data = _encode_image(image_path)
+
+    response = client.chat.completions.create(
+        model=cfg.model,
+        max_tokens=512,
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": prompt},
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": f"data:image/png;base64,{image_data}"},
+                    },
+                ],
+            }
+        ],
+    )
+    return _parse_response(response.choices[0].message.content, cfg.structured_metadata)
+
+
 def describe(image_path: Path, cfg: VisionConfig) -> ScreenshotMetadata:
     """Describe a screenshot using the configured vision provider."""
     if cfg.provider == "anthropic":
         return _describe_anthropic(image_path, cfg)
     elif cfg.provider == "ollama":
         return _describe_ollama(image_path, cfg)
+    elif cfg.provider == "openai":
+        return _describe_openai(image_path, cfg)
     else:
-        raise ValueError(f"Unknown vision provider: {cfg.provider!r}. Use 'anthropic' or 'ollama'.")
+        raise ValueError(
+            f"Unknown vision provider: {cfg.provider!r}. Use 'anthropic', 'ollama', or 'openai'."
+        )

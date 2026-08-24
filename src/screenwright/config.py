@@ -10,7 +10,7 @@ _DEFAULT_DESCRIBE_PROMPT = "Describe this UI screenshot for documentation purpos
 
 
 class VisionConfig(BaseModel):
-    provider: Literal["anthropic", "ollama"] = "anthropic"
+    provider: Literal["anthropic", "ollama", "openai"] = "anthropic"
     model: str = "claude-haiku-4-5"
     structured_metadata: bool = True
     prompt: str = _DEFAULT_DESCRIBE_PROMPT

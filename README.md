@@ -9,7 +9,8 @@ A focused documentation screenshot pipeline with an MCP server interface. Screen
 `playwright-mcp` and similar tools are excellent for ad-hoc browser automation. They are not documentation pipelines. Screenwright adds:
 
 - **Config-driven flows** — define your capture sequence once in TOML, run it anywhere
-- **Vision-generated descriptions** — Claude Haiku or local Moondream2 describes each screenshot
+- **Vision-generated descriptions** — Claude Haiku, OpenAI, or local Moondream2 describes each screenshot
+- **Client-agnostic MCP server** — driven the same way from Claude Desktop, Claude Code, or OpenAI Codex CLI
 - **Structured metadata** — JSON sidecar per screenshot (components, state, accessibility notes)
 - **Docs-ready output** — organized PNGs + auto-generated markdown index, ready for GitHub
 
@@ -27,6 +28,11 @@ playwright install chromium
 For the Claude Haiku vision model:
 ```bash
 export ANTHROPIC_API_KEY=your-api-key
+```
+
+For an OpenAI vision model (e.g. `gpt-4o-mini`):
+```bash
+export OPENAI_API_KEY=your-api-key
 ```
 
 For the local Moondream2 vision model (no API key required):
@@ -112,7 +118,7 @@ Add Screenwright to your Claude Desktop config (`~/Library/Application Support/C
 }
 ```
 
-For Claude Code, add to `.claude/settings.json`:
+For Claude Code, add to `.mcp.json` in your project root:
 
 ```json
 {
@@ -126,6 +132,26 @@ For Claude Code, add to `.claude/settings.json`:
   }
 }
 ```
+
+For OpenAI Codex CLI, add to `~/.codex/config.toml` (or your project's `.codex/config.toml`):
+
+```toml
+[mcp_servers.screenwright]
+command = "screenwright-mcp"
+args = []
+
+[mcp_servers.screenwright.env]
+SCREENWRIGHT_CONFIG = "./screenwright.toml"
+```
+
+Screenwright's MCP server is a standard stdio server built on the `mcp` Python SDK — it isn't
+Claude-specific, so any MCP-compliant client (Claude Desktop, Claude Code, Codex CLI, others)
+can drive it the same way. Only the *vision* layer cares which AI vendor you're using — set
+`provider = "openai"` in `[vision]` (with `OPENAI_API_KEY` set) if you'd rather keep the whole
+pipeline on OpenAI when driving Screenwright from Codex.
+
+MCP config file locations and formats can change between client versions — check your client's
+current docs if the above doesn't connect.
 
 ### MCP Tools
 
@@ -153,8 +179,8 @@ For Claude Code, add to `.claude/settings.json`:
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `provider` | string | `"anthropic"` | `"anthropic"` or `"ollama"` |
-| `model` | string | `"claude-haiku-4-5"` | Model name. For Ollama: `"moondream"`, `"llava"`, `"qwen2-vl"` |
+| `provider` | string | `"anthropic"` | `"anthropic"`, `"openai"`, or `"ollama"` |
+| `model` | string | `"claude-haiku-4-5"` | Model name. For OpenAI: `"gpt-4o-mini"`. For Ollama: `"moondream"`, `"llava"`, `"qwen2-vl"` |
 | `structured_metadata` | bool | `true` | Return JSON metadata alongside plain description |
 | `prompt` | string | *(built-in)* | Override the describe prompt sent to the vision model |
 
@@ -269,6 +295,18 @@ structured_metadata = true
 ```
 
 Cost: ~$0.25/M input tokens. Describing a typical UI screenshot costs a fraction of a cent.
+
+### OpenAI (cloud)
+
+Requires an OpenAI API key. Set `OPENAI_API_KEY` in your environment. Useful when the rest of
+your workflow — e.g. driving Screenwright's MCP server from Codex CLI — is already on OpenAI.
+
+```toml
+[vision]
+provider = "openai"
+model    = "gpt-4o-mini"
+structured_metadata = true
+```
 
 ### Moondream2 (local — no API key)
 
