@@ -441,6 +441,15 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       confirm the bug before writing the fix. README's Quick Start section documents the exit
       code contract explicitly for the first time.)*
 
+- [x] **#30 [low, repo hygiene, found 2026-08-24 by fresh review] `uv.lock` was untracked but
+      not gitignored** — every commit this session's `git status --short` showed `?? uv.lock`,
+      requiring a specific-file `git add` rather than `-A`/`.` to avoid accidentally staging it.
+      CI installs via `pip install ".[dev]"`, not `uv sync`, so the lockfile isn't part of this
+      project's actual reproducibility story — leaving it untracked-but-visible risked a future
+      careless `git add -A` committing an unreviewed, machine-specific dependency snapshot.
+      *(fixed 2026-08-24: added `uv.lock` to `.gitignore` with a comment explaining why it's
+      ignored rather than committed. No code/test changes.)*
+
 ## Test coverage gaps
 
 - [x] `_describe_anthropic`/`_describe_openai` mocked and tested (2026-08-24, alongside #6).

@@ -38,3 +38,9 @@ htmlcov/
 # Playwright
 playwright/.auth/
 test-results/
+
+# uv generates this locally (e.g. `uv run pytest`) but CI installs via
+# `pip install ".[dev]"`, not `uv sync` — it isn't part of this project's
+# reproducibility story, so it's ignored rather than left untracked (where
+# a careless `git add -A` could commit an unreviewed dependency snapshot).
+uv.lock
