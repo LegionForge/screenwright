@@ -134,6 +134,23 @@ def test_describe_screenshot_raises_when_file_missing(tmp_path):
         asyncio.run(describe_screenshot(str(missing)))
 
 
+def test_describe_screenshot_rejects_unknown_provider(tmp_path):
+    # provider is typed as Literal["anthropic", "ollama", "openai"] so a real
+    # MCP client sees the valid options in the tool's schema; this guards
+    # the runtime fallback for an out-of-schema value (a client that
+    # ignores the schema, or a stale client) still gets a clear rejection
+    # from VisionConfig rather than an unrelated error deeper in describe().
+    import asyncio
+
+    from pydantic import ValidationError
+
+    png = tmp_path / "shot.png"
+    png.write_bytes(b"fake-png")
+
+    with pytest.raises(ValidationError):
+        asyncio.run(describe_screenshot(str(png), provider="bogus"))
+
+
 def test_describe_screenshot_returns_structured_json(tmp_path, monkeypatch):
     import asyncio
 

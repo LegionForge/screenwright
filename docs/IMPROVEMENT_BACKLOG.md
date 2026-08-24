@@ -348,6 +348,22 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       `pytest`/`ruff check`/`ruff format --check` pass to confirm the docs-only change didn't
       regress anything.)*
 
+- [x] **#24 [low, found 2026-08-24 by fresh review, not in the original Opus pass]
+      `describe_screenshot`'s `provider` param was typed `str`, not the `Literal` it actually
+      validates against** — `mcp_server.py`. `VisionConfig.provider` is
+      `Literal["anthropic", "ollama", "openai"]`, but the MCP tool signature took a bare `str`
+      and cast it into `VisionConfig` with a `# type: ignore[arg-type]`. FastMCP derives each
+      tool's exposed schema from its Python type hints, so a real MCP client saw `provider` as
+      an unconstrained string with no indication of the three valid values — worse
+      discoverability than every other enum-like param in this codebase (`NavigateStep.wait_until`,
+      `CaptureStep.animations`, `Variant.color_scheme` are all already `Literal`). *(fixed
+      2026-08-24: retyped `provider: Literal["anthropic", "ollama", "openai"] = "anthropic"`,
+      matching `VisionConfig.provider` exactly and dropping the now-unneeded type-ignore. 1 new
+      test confirming an out-of-schema value still gets a clear Pydantic `ValidationError` at
+      the `VisionConfig` layer — the fallback for a client that ignores the schema, since Python
+      itself doesn't enforce type hints on a direct call. `docs/MCP_TOOLS.md` and the wiki's
+      MCP-Tools-Reference page updated.)*
+
 ## Test coverage gaps
 
 - [x] `_describe_anthropic`/`_describe_openai` mocked and tested (2026-08-24, alongside #6).

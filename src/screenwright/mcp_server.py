@@ -5,7 +5,7 @@ import json
 import os
 import tempfile
 from pathlib import Path
-from typing import Optional
+from typing import Literal, Optional
 
 from mcp.server.fastmcp import FastMCP
 
@@ -236,7 +236,7 @@ async def describe_flow(
 @mcp.tool()
 async def describe_screenshot(
     screenshot_path: str,
-    provider: str = "anthropic",
+    provider: Literal["anthropic", "ollama", "openai"] = "anthropic",
     model: str = "claude-haiku-4-5",
     structured_metadata: bool = True,
 ) -> str:
@@ -263,7 +263,7 @@ async def describe_screenshot(
         raise FileNotFoundError(f"Screenshot not found: {screenshot_path}")
 
     vision_cfg = VisionConfig(
-        provider=provider,  # type: ignore[arg-type]
+        provider=provider,
         model=model,
         structured_metadata=structured_metadata,
     )

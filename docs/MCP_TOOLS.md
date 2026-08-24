@@ -135,14 +135,16 @@ Send an already-captured PNG to a vision model independently of a flow run.
 | Param | Type | Required | Description |
 |---|---|---|---|
 | `screenshot_path` | string | yes | Absolute path to the PNG |
-| `provider` | string | no | `"anthropic"` (default), `"openai"`, or `"ollama"` |
+| `provider` | `"anthropic" \| "ollama" \| "openai"` | no | `"anthropic"` (default) |
 | `model` | string | no | Model name — e.g. `"claude-haiku-4-5"`, `"gpt-4o-mini"`, `"moondream"` |
 | `structured_metadata` | bool | no | Default `true` — return JSON metadata instead of plain text |
 
 **Returns:** `string` — JSON-encoded `ScreenshotMetadata` if `structured_metadata=true`, else the
 plain-text description.
 
-**Raises:** `FileNotFoundError` if `screenshot_path` doesn't exist.
+**Raises:** `FileNotFoundError` if `screenshot_path` doesn't exist; Pydantic `ValidationError` if
+`provider` is set to a value outside the three above (a real MCP client sees the valid options in
+the tool's schema, so this is a fallback for a client that ignores it).
 
 ---
 
