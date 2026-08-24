@@ -169,6 +169,48 @@ def test_multiple_flows(tmp_path):
     assert cfg.get_flow("missing") is None
 
 
+def test_load_rejects_duplicate_flow_names(tmp_path):
+    # Every flow's output path is derived from its name — two flows
+    # sharing a name would silently write to the same directory, one
+    # overwriting the other (or racing under --concurrency > 1). A
+    # copy-paste typo in TOML is the realistic way to trigger this, so
+    # it's caught here rather than producing confusing output.
+    p = write_toml(
+        tmp_path,
+        """
+        [[flows]]
+        name = "homepage"
+
+          [[flows.steps]]
+          action = "navigate"
+          url = "/"
+
+        [[flows]]
+        name = "homepage"
+
+          [[flows.steps]]
+          action = "navigate"
+          url = "/about"
+        """,
+    )
+    with pytest.raises(ValidationError, match="Duplicate flow name"):
+        load_config(p)
+
+
+def test_screenwright_config_accepts_unique_flow_names_directly():
+    cfg = ScreenwrightConfig(
+        flows=[Flow(name="a", steps=[]), Flow(name="b", steps=[])],
+    )
+    assert cfg.flow_names() == ["a", "b"]
+
+
+def test_screenwright_config_rejects_duplicate_flow_names_directly():
+    with pytest.raises(ValidationError, match="Duplicate flow name"):
+        ScreenwrightConfig(
+            flows=[Flow(name="a", steps=[]), Flow(name="a", steps=[])],
+        )
+
+
 def test_vision_disable(tmp_path):
     p = write_toml(
         tmp_path,

@@ -190,3 +190,11 @@ sequenceDiagram
   banner (escaped through the existing `_escape_markdown_cell`, since `.error` can embed a
   selector string or other config-derived text) above a flow's capture table when `.error` is
   set, and a `✅`/`⚠️ Partial` Status column to the root README's flow table.
+- **`ScreenwrightConfig` never rejected duplicate flow names.** Every flow's output path is
+  derived from its name (`output_dir / flow.name`), so two flows sharing a name silently wrote
+  to the same directory — one overwriting the other's captures/index.md, `get_flow()` only ever
+  returning the first match, and (under `--concurrency > 1`) both flows recording video/HAR to
+  the same directory concurrently, which can corrupt either file. A copy-paste typo in TOML is
+  the realistic trigger. Fixed with a `model_validator(mode="after")` on `ScreenwrightConfig`
+  that rejects (doesn't silently dedupe) any duplicate name, matching the reject-don't-sanitize
+  philosophy `validate_safe_name` already established elsewhere in this codebase.

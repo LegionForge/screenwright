@@ -230,6 +230,33 @@ class ScreenwrightConfig(BaseModel):
     vision: VisionConfig = Field(default_factory=VisionConfig)
     flows: list[Flow] = []
 
+    @model_validator(mode="after")
+    def _validate_unique_flow_names(self) -> "ScreenwrightConfig":
+        """Reject duplicate flow names instead of silently corrupting output.
+
+        Every flow's output path is derived from its name
+        (``output_dir / flow.name``), so two flows sharing a name write to
+        the exact same directory — one flow's captures/index.md silently
+        overwrite the other's, and `get_flow()` can only ever return the
+        first match. Under `--concurrency > 1` this is worse than silent:
+        both flows record video/HAR to the same directory concurrently,
+        which can corrupt either file. A copy-paste typo in TOML is the
+        realistic way to trigger this, so it's caught here rather than
+        producing confusing output.
+        """
+        seen: set[str] = set()
+        duplicates: set[str] = set()
+        for flow in self.flows:
+            if flow.name in seen:
+                duplicates.add(flow.name)
+            seen.add(flow.name)
+        if duplicates:
+            raise ValueError(
+                f"Duplicate flow name(s): {', '.join(sorted(duplicates))}. "
+                "Each flow must have a unique name — output paths are derived from it."
+            )
+        return self
+
     def get_flow(self, name: str) -> Flow | None:
         for flow in self.flows:
             if flow.name == name:

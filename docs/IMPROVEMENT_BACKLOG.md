@@ -278,6 +278,23 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       (`test_write_root_readme_lists_all_flows`) updated for the new column format.
       README's Output Format section updated.)*
 
+- [x] **#20 [medium, found 2026-08-24 by fresh review, not in the original Opus pass]
+      `ScreenwrightConfig` never rejected duplicate flow names** — `config.py`. Every flow's
+      output path is derived from its name (`output_dir / flow.name`), so two flows sharing a
+      name silently wrote to the same directory: one overwrites the other's captures/index.md,
+      `get_flow()` only ever returns the first match (the second flow's steps still run, just
+      unreachable by name afterward), and — worse — under `--concurrency > 1` both flows record
+      video/HAR to the same directory concurrently, which can corrupt either file. A copy-paste
+      typo duplicating a `[[flows]]` block and forgetting to rename it is the realistic way to
+      trigger this. *(fixed 2026-08-24: added a `model_validator(mode="after")` on
+      `ScreenwrightConfig` that rejects — doesn't silently dedupe — any duplicate flow name,
+      naming the duplicate(s) in the error. Matches the reject-don't-sanitize philosophy
+      `validate_safe_name` already established for names elsewhere in this codebase, and fits
+      the same "fail fast with a clear error, not a confusing runtime result" pitch `validate`
+      already makes for schema violations. 4 new tests (config-load rejection, direct
+      `ScreenwrightConfig` construction rejection/acceptance). README's `validate` description
+      updated to list this alongside the other things it now catches.)*
+
 ## Test coverage gaps
 
 - [x] `_describe_anthropic`/`_describe_openai` mocked and tested (2026-08-24, alongside #6).
