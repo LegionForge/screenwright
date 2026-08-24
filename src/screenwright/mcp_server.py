@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import tempfile
 from pathlib import Path
@@ -17,7 +18,10 @@ mcp = FastMCP(
         "Screenwright captures UI screenshots for documentation. "
         "Use capture_url or capture_element for one-off captures. "
         "Use run_flow to execute a multi-step flow from a TOML config. "
-        "Use describe_screenshot to get a vision-model description of any captured PNG."
+        "Use describe_screenshot to get a vision-model description of any captured PNG. "
+        "Use describe_flow to get everything already captured for a flow (markdown index "
+        "plus every capture's structured metadata) in one call after run_flow_tool, instead "
+        "of one describe_screenshot call per screenshot."
     ),
 )
 
@@ -175,6 +179,54 @@ async def list_flows(config_path: Optional[str] = None) -> list[str]:
 
 
 @mcp.tool()
+async def describe_flow(
+    flow_name: str,
+    config_path: Optional[str] = None,
+    output_dir: Optional[str] = None,
+) -> dict:
+    """
+    Return everything already captured for a flow — the markdown index and every
+    capture's structured metadata — in one call, instead of one describe_screenshot
+    round-trip per screenshot.
+
+    This reads existing output on disk; it does not run the flow. Call
+    run_flow_tool first.
+
+    Args:
+        flow_name: Name of a flow that has already been run.
+        config_path: Path to TOML config, used only to resolve the output
+            directory the same way run_flow_tool does. Falls back to
+            SCREENWRIGHT_CONFIG.
+        output_dir: Override the output directory from the config.
+
+    Returns:
+        {"flow_name": str, "index_md": str | None, "captures": [
+            {"name": str, "path": str, "metadata": dict | None}, ...
+        ]}. index_md and captures are empty/None if the flow's output
+        directory doesn't exist yet (it hasn't been run). A capture with no
+        .json sidecar (vision was disabled, or describe() failed for just
+        that one) has metadata: None rather than being omitted.
+    """
+    cfg = _resolve_config(config_path)
+    out_root = _resolve_output(cfg, output_dir)
+    flow_dir = out_root / flow_name
+
+    if not flow_dir.is_dir():
+        return {"flow_name": flow_name, "index_md": None, "captures": []}
+
+    index_path = flow_dir / "index.md"
+    index_md = index_path.read_text(encoding="utf-8") if index_path.exists() else None
+
+    captures = []
+    for png_path in sorted(flow_dir.glob("*.png")):
+        json_path = png_path.with_suffix(".json")
+        metadata = json.loads(json_path.read_text(encoding="utf-8")) if json_path.exists() else None
+        captures.append({"name": png_path.stem, "path": str(png_path), "metadata": metadata})
+
+    return {"flow_name": flow_name, "index_md": index_md, "captures": captures}
+
+
+@mcp.tool()
 async def describe_screenshot(
     screenshot_path: str,
     provider: str = "anthropic",
@@ -212,8 +264,6 @@ async def describe_screenshot(
     metadata = await asyncio.to_thread(describe, path, vision_cfg)
 
     if structured_metadata:
-        import json
-
         return json.dumps(metadata.model_dump(), indent=2)
     return metadata.description
 

@@ -253,6 +253,7 @@ does — check your client's current docs if one of the snippets above doesn't c
 | `run_flow_tool(flow_name, config_path?)` | Execute a named flow from the loaded config |
 | `list_flows(config_path?)` | List available flow names |
 | `describe_screenshot(screenshot_path, vision_model?)` | Describe a PNG using the vision model |
+| `describe_flow(flow_name, config_path?, output_dir?)` | Get a flow's markdown index + every capture's metadata in one call, instead of one `describe_screenshot` round-trip per screenshot |
 
 ---
 

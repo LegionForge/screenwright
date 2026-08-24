@@ -12,6 +12,7 @@ from screenwright.mcp_server import (
     _resolve_output,
     capture_element,
     capture_url,
+    describe_flow,
     describe_screenshot,
     list_flows,
     run_flow_tool,
@@ -287,3 +288,38 @@ def test_run_flow_tool_raises_clear_error_for_unknown_flow_name(tmp_path):
     # on the next call instead of guessing.
     assert "homepage" in str(exc_info.value)
     assert "login" in str(exc_info.value)
+
+
+def test_describe_flow_returns_empty_when_flow_never_run(tmp_path):
+    import asyncio
+
+    result = asyncio.run(describe_flow("never-run", output_dir=str(tmp_path / "out")))
+
+    assert result == {"flow_name": "never-run", "index_md": None, "captures": []}
+
+
+def test_describe_flow_bundles_index_and_capture_metadata(tmp_path):
+    import json
+
+    flow_dir = tmp_path / "out" / "homepage"
+    flow_dir.mkdir(parents=True)
+    (flow_dir / "index.md").write_text("# homepage\n\n| Screenshot | Description |\n")
+
+    (flow_dir / "hero.png").write_bytes(b"fake-png")
+    (flow_dir / "hero.json").write_text(json.dumps({"description": "Hero section"}))
+
+    # A capture with no metadata sidecar — vision disabled, or describe()
+    # failed for just this one — must appear with metadata: None, not be
+    # silently dropped from the bundle.
+    (flow_dir / "footer.png").write_bytes(b"fake-png")
+
+    import asyncio
+
+    result = asyncio.run(describe_flow("homepage", output_dir=str(tmp_path / "out")))
+
+    assert result["flow_name"] == "homepage"
+    assert "# homepage" in result["index_md"]
+    captures_by_name = {c["name"]: c for c in result["captures"]}
+    assert captures_by_name["hero"]["metadata"] == {"description": "Hero section"}
+    assert captures_by_name["footer"]["metadata"] is None
+    assert captures_by_name["hero"]["path"] == str(flow_dir / "hero.png")

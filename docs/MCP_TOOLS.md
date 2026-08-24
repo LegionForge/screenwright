@@ -98,6 +98,36 @@ flow names) or a config-loading error — never for a step failing during the fl
 
 **Returns:** `list[string]` — flow names defined in the config.
 
+## `describe_flow`
+
+Return everything already captured for a flow — the markdown index and every capture's
+structured metadata — in one call, instead of one `describe_screenshot` round-trip per
+screenshot. Reads existing output on disk; **does not run the flow** — call `run_flow_tool`
+first.
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `flow_name` | string | yes | Name of a flow that has already been run |
+| `config_path` | string | no | Path to TOML config, used only to resolve `output_dir` the same way `run_flow_tool` does. Falls back to `SCREENWRIGHT_CONFIG` |
+| `output_dir` | string | no | Override the output directory from the config |
+
+**Returns:** a dict:
+```json
+{
+  "flow_name": "homepage",
+  "index_md": "<markdown index content> | null",
+  "captures": [
+    {"name": "hero", "path": "<absolute PNG path>", "metadata": {"description": "...", "...": "..."}},
+    {"name": "footer", "path": "<absolute PNG path>", "metadata": null}
+  ]
+}
+```
+
+`index_md` is `null` and `captures` is `[]` if the flow's output directory doesn't exist yet
+(it hasn't been run). A capture with no `.json` sidecar — vision was disabled, or `describe()`
+failed for just that one — has `metadata: null` rather than being silently dropped from the
+bundle.
+
 ## `describe_screenshot`
 
 Send an already-captured PNG to a vision model independently of a flow run.

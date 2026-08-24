@@ -217,7 +217,12 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
 8. **Parallel flow execution** — `cli.py` runs flows serially with a fresh event loop each; one
    browser + bounded `asyncio.gather` over contexts would cut a multi-flow build several-fold.
 9. **PDF export / HAR capture** — lower priority, not core to the MCP+vision differentiator.
-10. **`describe_flow` MCP tool** — whole index.md + metadata bundle in one call instead of N
-    `describe_screenshot` round-trips.
+10. **`describe_flow` MCP tool** *(shipped 2026-08-24)* — whole index.md + metadata bundle in
+    one call instead of N `describe_screenshot` round-trips. Pure filesystem read (no
+    Playwright, no changes to the core capture path) — reads what `run_flow_tool` +
+    `write_flow_output` already wrote, doesn't run anything. Returns
+    `{flow_name, index_md, captures: [{name, path, metadata}]}`; a capture with no `.json`
+    sidecar gets `metadata: null` rather than being dropped. 2 new tests. README, MCP_TOOLS.md,
+    and wiki updated.
 
 ## Market research (pending — append when the research pass returns)
