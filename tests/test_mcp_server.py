@@ -4,7 +4,13 @@ from pathlib import Path
 
 import pytest
 
-from screenwright.mcp_server import _resolve_capture_path, run_flow_tool
+from screenwright.config import ScreenwrightConfig
+from screenwright.mcp_server import (
+    _DEFAULT_OUTPUT,
+    _resolve_capture_path,
+    _resolve_output,
+    run_flow_tool,
+)
 
 
 def test_resolve_capture_path_accepts_safe_name(tmp_path):
@@ -73,3 +79,30 @@ def test_run_flow_tool_returns_partial_result_dict_on_step_failure(tmp_path):
     assert output["failed_step_index"] == 2
     assert output["error"] is not None
     assert output["video_path"] is None
+
+
+def test_resolve_output_prefers_explicit_override():
+    cfg = ScreenwrightConfig()
+    assert _resolve_output(cfg, "/tmp/explicit-override") == Path("/tmp/explicit-override")
+
+
+def test_resolve_output_falls_back_to_default_when_output_dir_never_set():
+    cfg = ScreenwrightConfig()
+    assert "output_dir" not in cfg.model_fields_set
+    assert _resolve_output(cfg, None) == _DEFAULT_OUTPUT
+
+
+def test_resolve_output_respects_explicitly_set_value_matching_the_default():
+    # This is the bug: a user who deliberately writes
+    # `output_dir = "docs/screenshots"` in their TOML (same string as the
+    # field default) must still get that directory — not get silently
+    # redirected to a temp dir just because the value happens to match the
+    # default.
+    cfg = ScreenwrightConfig.model_validate({"output_dir": "docs/screenshots"})
+    assert "output_dir" in cfg.model_fields_set
+    assert _resolve_output(cfg, None) == Path("docs/screenshots")
+
+
+def test_resolve_output_respects_explicitly_set_custom_value():
+    cfg = ScreenwrightConfig.model_validate({"output_dir": "custom/path"})
+    assert _resolve_output(cfg, None) == Path("custom/path")

@@ -108,10 +108,16 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       imported; open-ended `>=` bounds; no lockfile/hash pinning in CI. Fix: move to extras
       (`screenwright[anthropic]` etc.), clear ImportError message; pin CI with a lockfile; add
       upper bounds on fast-moving deps (playwright, mcp).
-- [ ] **#9 [low-medium] `_resolve_output` string-compares against the default as a sentinel** —
+- [x] **#9 [low-medium] `_resolve_output` string-compares against the default as a sentinel** —
       `mcp_server.py:37`. A user who deliberately sets `output_dir = "docs/screenshots"` (the
       default value) gets silently redirected to `/tmp/screenwright-output`. Fix: use
-      `model_fields_set` or make the default `None`.
+      `model_fields_set` or make the default `None`. *(fixed 2026-08-24: switched to
+      `"output_dir" in config.model_fields_set` — distinguishes "the TOML explicitly set this
+      key" from "never set, holding the field default" regardless of what value was set to,
+      which a value-equality check against the default string structurally can't do. 4 new
+      tests, including one that would have caught the original bug directly: a config with
+      `output_dir` explicitly set to the same string as the default must still resolve to that
+      directory, not fall through to the temp default.)*
 - [ ] **#10 [low-medium] No timeouts/viewport control anywhere** — `capture.py:88-94,119-159`.
       No `set_default_timeout`, no per-step override, `wait_until: str` untyped so a typo becomes
       a Playwright error instead of a config validation error.

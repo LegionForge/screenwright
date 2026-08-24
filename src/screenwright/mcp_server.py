@@ -32,9 +32,18 @@ def _resolve_config(config_path: Optional[str]) -> ScreenwrightConfig:
 
 
 def _resolve_output(config: ScreenwrightConfig, override: Optional[str]) -> Path:
+    """Pick the output directory: explicit override > config's own value > temp default.
+
+    A user who deliberately sets `output_dir = "docs/screenshots"` (the
+    same string as the field default) must still get that directory, not
+    get silently redirected to a temp dir. Comparing the *value* against
+    the default string can't distinguish "explicitly set to the default"
+    from "never set" — check `model_fields_set` instead, which pydantic
+    populates from whatever keys were actually present in the parsed TOML.
+    """
     if override:
         return Path(override)
-    if config.output_dir and config.output_dir != "docs/screenshots":
+    if "output_dir" in config.model_fields_set:
         return Path(config.output_dir)
     return _DEFAULT_OUTPUT
 
