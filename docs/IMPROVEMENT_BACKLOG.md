@@ -133,8 +133,11 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       a Playwright error instead of a config validation error.
 - [ ] **#11 [low] `save_metadata` annotated `-> Path` but returns `None`** — `output.py:9-18`.
       mypy isn't in CI so unnoticed; fix annotation to `Path | None`.
-- [ ] **#12 [low] `asyncio.get_event_loop()` inside a coroutine** — `mcp_server.py:178`.
-      Deprecated; use `asyncio.to_thread(describe, path, vision_cfg)`.
+- [x] **#12 [low] `asyncio.get_event_loop()` inside a coroutine** — `mcp_server.py:178`.
+      Deprecated; use `asyncio.to_thread(describe, path, vision_cfg)`. *(fixed 2026-08-24 —
+      one-line swap. Also added the first tests for `describe_screenshot`, previously entirely
+      untested: missing-file error, structured-JSON return, plain-description return — a start
+      on the "MCP server has no tests at all" gap below.)*
 - [ ] **#13 [low] `discovery.py` is a docstring with no code** — ships in the wheel, importable,
       empty. Delete and move design notes to DECISIONS.md, or implement it.
 
@@ -143,8 +146,9 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
 - [x] `_describe_anthropic`/`_describe_openai` mocked and tested (2026-08-24, alongside #6).
       `_describe_ollama` still has zero coverage — lower priority, its response shape (plain
       dict) doesn't share the "unpacking assumptions" bug class #6 fixed for the other two.
-- [ ] MCP server has no tests at all — 5 tools, `_resolve_config` env fallback, `_resolve_output`
-      heuristic (#9) all untested. FastMCP tools are plain async functions, callable directly.
+- [ ] MCP server test coverage: `_resolve_output` (#9) and `describe_screenshot` now covered
+      (2026-08-24). Still untested: `capture_url`, `capture_element`, `run_flow_tool`'s
+      flow-not-found path, `list_flows`, `_resolve_config`'s env-var fallback.
 - [ ] No test covers a flow whose step fails mid-way (#1) or a `describe()` failure mid-run (#5).
 - [ ] `cli.py` is untested — Typer's `CliRunner` would cover config-not-found/flow-not-found/
       empty-flows cheaply.

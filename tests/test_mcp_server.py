@@ -9,6 +9,7 @@ from screenwright.mcp_server import (
     _DEFAULT_OUTPUT,
     _resolve_capture_path,
     _resolve_output,
+    describe_screenshot,
     run_flow_tool,
 )
 
@@ -106,3 +107,49 @@ def test_resolve_output_respects_explicitly_set_value_matching_the_default():
 def test_resolve_output_respects_explicitly_set_custom_value():
     cfg = ScreenwrightConfig.model_validate({"output_dir": "custom/path"})
     assert _resolve_output(cfg, None) == Path("custom/path")
+
+
+def test_describe_screenshot_raises_when_file_missing(tmp_path):
+    import asyncio
+
+    missing = tmp_path / "does-not-exist.png"
+    with pytest.raises(FileNotFoundError):
+        asyncio.run(describe_screenshot(str(missing)))
+
+
+def test_describe_screenshot_returns_structured_json(tmp_path, monkeypatch):
+    import asyncio
+
+    from screenwright.vision import ScreenshotMetadata
+
+    png = tmp_path / "shot.png"
+    png.write_bytes(b"fake-png")
+
+    def fake_describe(image_path, cfg):
+        return ScreenshotMetadata(description="A login form", components=["form"])
+
+    monkeypatch.setattr("screenwright.vision.describe", fake_describe)
+
+    result = asyncio.run(describe_screenshot(str(png), structured_metadata=True))
+
+    assert isinstance(result, str)
+    assert "A login form" in result
+    assert "form" in result
+
+
+def test_describe_screenshot_returns_plain_description(tmp_path, monkeypatch):
+    import asyncio
+
+    from screenwright.vision import ScreenshotMetadata
+
+    png = tmp_path / "shot.png"
+    png.write_bytes(b"fake-png")
+
+    def fake_describe(image_path, cfg):
+        return ScreenshotMetadata(description="A login form")
+
+    monkeypatch.setattr("screenwright.vision.describe", fake_describe)
+
+    result = asyncio.run(describe_screenshot(str(png), structured_metadata=False))
+
+    assert result == "A login form"

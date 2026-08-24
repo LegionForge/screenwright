@@ -209,8 +209,7 @@ async def describe_screenshot(
         structured_metadata=structured_metadata,
     )
 
-    loop = asyncio.get_event_loop()
-    metadata = await loop.run_in_executor(None, describe, path, vision_cfg)
+    metadata = await asyncio.to_thread(describe, path, vision_cfg)
 
     if structured_metadata:
         import json
