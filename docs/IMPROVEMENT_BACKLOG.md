@@ -1,0 +1,99 @@
+# Improvement Backlog
+
+Source: an independent Opus code-review pass + a market-research pass, both run 2026-08-24.
+Consumed by the recurring 30-minute improvement loop (session-local cron job) — each iteration
+should pick the highest-priority unchecked item, implement it with tests, verify
+`pytest`/`ruff check`/`ruff format --check` are green, commit, push, and check it off here in
+the same commit. Skip an iteration (no-op) rather than force a low-quality change.
+
+## Findings (severity-ordered)
+
+- [x] **#2 [high] Path traversal via `name`/`output_dir`** — `capture.py:127`, `capture.py:103`,
+      `mcp_server.py:63,90`, `output.py:66`. `name`/`flow.name`/`output_dir` are used directly in
+      path construction with no validation. On the MCP surface these come from an LLM that just
+      read untrusted page content — a prompt-injection payload can steer a file write outside
+      the output root. Fix: validate names against `^[A-Za-z0-9._-]+$` (reject, don't silently
+      sanitize) in the Pydantic models + MCP tool bodies; resolve the final path and assert
+      `is_relative_to(out_root.resolve())`. *(fixed 2026-08-24, this session)*
+- [ ] **#1 [high] `run_flow`'s step loop has no error handling** — `capture.py:119-173`. A step
+      raising mid-flow skips video finalization (orphaned random-named `.webm`) and discards
+      already-taken captures (exception propagates past `write_flow_output` in `cli.py:77`). Fix:
+      wrap the loop in try/finally; in finally, close page/context and finalize video regardless;
+      return a partial `FlowResult` with a `failed_step`/`error` field so CLI/MCP can report
+      "3 of 5 captures succeeded, step 4 failed: selector X not found" instead of a stack trace.
+      This is also **missing-feature #1** below — same fix serves both.
+- [ ] **#3 [medium-high] Vision-model output written unescaped into public markdown** —
+      `output.py:29-34`. `description` (model output derived from attacker-controlled page
+      content) goes straight into a markdown table cell with no escaping; `capture_name` isn't
+      URL-encoded in the image ref. Fix: escape `|`/backticks/leading `#`, cap length,
+      percent-encode filenames in image refs, consider stripping HTML tags from model output.
+- [ ] **#4 [medium-high] No env-var interpolation for `fill` values** — `config.py:31-34`,
+      `capture.py:138`. Only way to script a login today is a plaintext credential in TOML next
+      to the code, which then also gets screenshotted and shipped to a vision API. Fix:
+      `value = "${ENV_VAR}"` resolution at load time (never render resolved values in
+      logs/errors) + a `secret = true` flag on `FillStep` that masks/blocks captures.
+- [ ] **#5 [medium] `describe()` failures abort an entire run mid-way** — `cli.py:74-77`. One
+      API blip (429/timeout) raises out of the loop before `write_flow_output` — screenshots are
+      on disk but no index.md, no subsequent flows run. Fix: per-capture try/except (leave
+      `metadata=None`, output layer already tolerates it), bounded retry w/ exponential backoff.
+- [ ] **#6 [medium] Provider response unpacking assumes a shape that isn't guaranteed** —
+      `vision.py:91,137`. OpenAI `content=None` on refusal/length-stop → AttributeError, not a
+      useful error. Anthropic's first content block isn't guaranteed text. `max_tokens=512`
+      silently truncates+degrades with no signal. Fix: defensively locate first text block /
+      handle None; surface `stop_reason == "max_tokens"` as a warning.
+- [ ] **#7 [low-medium] `except (json.JSONDecodeError, Exception)` swallows everything** —
+      `vision.py:54`. Narrow to `(json.JSONDecodeError, ValidationError)`.
+- [ ] **#8 [medium, supply-chain] All 3 vision SDKs are hard runtime deps** —
+      `pyproject.toml:18-20`. anthropic/openai/ollama installed unconditionally though lazily
+      imported; open-ended `>=` bounds; no lockfile/hash pinning in CI. Fix: move to extras
+      (`screenwright[anthropic]` etc.), clear ImportError message; pin CI with a lockfile; add
+      upper bounds on fast-moving deps (playwright, mcp).
+- [ ] **#9 [low-medium] `_resolve_output` string-compares against the default as a sentinel** —
+      `mcp_server.py:37`. A user who deliberately sets `output_dir = "docs/screenshots"` (the
+      default value) gets silently redirected to `/tmp/screenwright-output`. Fix: use
+      `model_fields_set` or make the default `None`.
+- [ ] **#10 [low-medium] No timeouts/viewport control anywhere** — `capture.py:88-94,119-159`.
+      No `set_default_timeout`, no per-step override, `wait_until: str` untyped so a typo becomes
+      a Playwright error instead of a config validation error.
+- [ ] **#11 [low] `save_metadata` annotated `-> Path` but returns `None`** — `output.py:9-18`.
+      mypy isn't in CI so unnoticed; fix annotation to `Path | None`.
+- [ ] **#12 [low] `asyncio.get_event_loop()` inside a coroutine** — `mcp_server.py:178`.
+      Deprecated; use `asyncio.to_thread(describe, path, vision_cfg)`.
+- [ ] **#13 [low] `discovery.py` is a docstring with no code** — ships in the wheel, importable,
+      empty. Delete and move design notes to DECISIONS.md, or implement it.
+
+## Test coverage gaps
+
+- [ ] `_describe_anthropic`/`_describe_openai`/`_describe_ollama` have zero coverage — mock the
+      3 SDKs, assert request shape + None/empty-response handling (covers #6).
+- [ ] MCP server has no tests at all — 5 tools, `_resolve_config` env fallback, `_resolve_output`
+      heuristic (#9) all untested. FastMCP tools are plain async functions, callable directly.
+- [ ] No test covers a flow whose step fails mid-way (#1) or a `describe()` failure mid-run (#5).
+- [ ] `cli.py` is untested — Typer's `CliRunner` would cover config-not-found/flow-not-found/
+      empty-flows cheaply.
+- [ ] All of `tests/test_capture.py` is `@pytest.mark.integration` — `pytest -m 'not integration'`
+      currently verifies zero of the capture engine.
+
+## Missing but valuable features (prioritized)
+
+1. **Structured partial results instead of exceptions** from `run_flow_tool` — falls out of
+   fixing #1. Single highest-leverage change for agent usability.
+2. **Auth/session injection** — `storage_state` file, cookie list, or HTTP basic-auth on the
+   context. Almost every internal app a docs tool targets is behind a login.
+3. **Viewport/theme variants** — one flow → matrix of captures (`{width=390, name="mobile"}`,
+   `{color_scheme="dark"}`, etc.) instead of duplicating the whole flow per variant.
+4. **Accessibility snapshot export** (`page.accessibility.snapshot()`) — higher-value output for
+   an *agent* consumer than a vision-model guess at a PNG; makes `accessibility_notes` real.
+5. **`screenwright validate config.toml`** — pydantic errors with TOML line numbers + a
+   selectors-resolve pre-flight pass, so a bad selector fails in <1s instead of 40s into a run.
+6. **Retry+backoff+politeness delay** for navigation and vision calls, plus a cost/token report.
+7. **Deterministic-capture helpers** — mask selectors (clock/avatar/email), `animations=disabled`
+   — pairs with a **screenshot-diff `--check` mode** that fails CI on UI drift. Flagged as the
+   most differentiated addition for a docs pipeline specifically.
+8. **Parallel flow execution** — `cli.py` runs flows serially with a fresh event loop each; one
+   browser + bounded `asyncio.gather` over contexts would cut a multi-flow build several-fold.
+9. **PDF export / HAR capture** — lower priority, not core to the MCP+vision differentiator.
+10. **`describe_flow` MCP tool** — whole index.md + metadata bundle in one call instead of N
+    `describe_screenshot` round-trips.
+
+## Market research (pending — append when the research pass returns)

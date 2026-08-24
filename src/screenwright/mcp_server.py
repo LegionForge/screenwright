@@ -9,7 +9,7 @@ from typing import Optional
 from mcp.server.fastmcp import FastMCP
 
 from screenwright.capture import FlowResult, capture_single_url, run_flow
-from screenwright.config import ScreenwrightConfig, load_config
+from screenwright.config import ScreenwrightConfig, load_config, validate_safe_name
 
 mcp = FastMCP(
     "screenwright",
@@ -39,6 +39,23 @@ def _resolve_output(config: ScreenwrightConfig, override: Optional[str]) -> Path
     return _DEFAULT_OUTPUT
 
 
+def _resolve_capture_path(out_root: Path, name: str) -> Path:
+    """Validate `name` and confirm the resulting PNG path stays inside out_root.
+
+    `name` on this MCP surface can be supplied by an LLM that just read
+    untrusted page content, so this is a real containment boundary, not a
+    formality — validate_safe_name blocks path separators/traversal
+    segments, and the is_relative_to check catches anything that slips
+    through (e.g. a platform-specific separator the regex didn't account for).
+    """
+    validate_safe_name(name)
+    out_root = out_root.resolve()
+    out_path = (out_root / f"{name}.png").resolve()
+    if not out_path.is_relative_to(out_root):
+        raise ValueError(f"Resolved capture path {out_path} escapes output_dir {out_root}")
+    return out_path
+
+
 @mcp.tool()
 async def capture_url(
     url: str,
@@ -60,7 +77,7 @@ async def capture_url(
     """
     out_root = Path(output_dir) if output_dir else _DEFAULT_OUTPUT
     out_root.mkdir(parents=True, exist_ok=True)
-    out_path = out_root / f"{name}.png"
+    out_path = _resolve_capture_path(out_root, name)
 
     saved = await capture_single_url(url, out_path, selector)
     return str(saved)
@@ -87,7 +104,7 @@ async def capture_element(
     """
     out_root = Path(output_dir) if output_dir else _DEFAULT_OUTPUT
     out_root.mkdir(parents=True, exist_ok=True)
-    out_path = out_root / f"{name}.png"
+    out_path = _resolve_capture_path(out_root, name)
 
     saved = await capture_single_url(url, out_path, selector)
     return str(saved)

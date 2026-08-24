@@ -1,12 +1,32 @@
 from __future__ import annotations
 
+import re
 import tomllib
 from pathlib import Path
 from typing import Annotated, Literal, Union
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 _DEFAULT_DESCRIBE_PROMPT = "Describe this UI screenshot for documentation purposes."
+
+_SAFE_NAME_RE = re.compile(r"^[A-Za-z0-9._-]+$")
+
+
+def validate_safe_name(name: str) -> str:
+    """Reject anything usable for path traversal or an absolute path.
+
+    Flow/capture names are used directly to build filesystem paths
+    (``flow_dir / f"{name}.png"``). On the MCP surface these names can come
+    from an LLM acting on untrusted page content, so this validates rather
+    than silently sanitizes — a rejected name is a clear error, a silently
+    rewritten one is a surprise.
+    """
+    if not _SAFE_NAME_RE.fullmatch(name) or ".." in name or name in (".", ".."):
+        raise ValueError(
+            f"Invalid name {name!r}: must match {_SAFE_NAME_RE.pattern} and not be a "
+            "path-traversal segment."
+        )
+    return name
 
 
 class VisionConfig(BaseModel):
@@ -26,6 +46,8 @@ class CaptureStep(BaseModel):
     action: Literal["capture"]
     name: str
     selector: str | None = None
+
+    _validate_name = field_validator("name")(validate_safe_name)
 
 
 class FillStep(BaseModel):
@@ -90,6 +112,8 @@ class Flow(BaseModel):
     record_width: int = 1280
     record_height: int = 720
     record_mp4: bool = False
+
+    _validate_name = field_validator("name")(validate_safe_name)
 
 
 class ScreenwrightConfig(BaseModel):

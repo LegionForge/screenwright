@@ -3,10 +3,14 @@ from __future__ import annotations
 import textwrap
 from pathlib import Path
 
+import pytest
+from pydantic import ValidationError
+
 from screenwright.config import (
     CaptureStep,
     ClickStep,
     FillStep,
+    Flow,
     NavigateStep,
     ScreenwrightConfig,
     VisionConfig,
@@ -184,3 +188,34 @@ def test_vision_config_defaults():
     assert vc.provider == "anthropic"
     assert vc.structured_metadata is True
     assert "documentation" in vc.prompt
+
+
+@pytest.mark.parametrize(
+    "bad_name",
+    [
+        "../../etc/passwd",
+        "..",
+        ".",
+        "foo/bar",
+        "foo\\bar",
+        "/etc/passwd",
+        "a..b",  # contains ".." even though it's not the whole segment
+        "",
+    ],
+)
+def test_capture_step_rejects_path_traversal_names(bad_name):
+    with pytest.raises(ValidationError):
+        CaptureStep(action="capture", name=bad_name)
+
+
+@pytest.mark.parametrize(
+    "bad_name",
+    ["../escape", ".."],
+)
+def test_flow_rejects_path_traversal_names(bad_name):
+    with pytest.raises(ValidationError):
+        Flow(name=bad_name)
+
+
+def test_capture_step_accepts_safe_names():
+    assert CaptureStep(action="capture", name="homepage-full_v2.1").name == "homepage-full_v2.1"
