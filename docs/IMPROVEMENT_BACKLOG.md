@@ -450,6 +450,31 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       *(fixed 2026-08-24: added `uv.lock` to `.gitignore` with a comment explaining why it's
       ignored rather than committed. No code/test changes.)*
 
+- [x] **#31 [high, found 2026-08-24 by fresh review] `scripts/install.sh` and
+      `scripts/upgrade.sh` would fail Chromium install for pipx users — the primary,
+      recommended install path** — after `pipx install screenwright` (or `pipx upgrade`), both
+      scripts ran plain `python3 -m playwright install chromium`. pipx installs into an
+      isolated venv the system `python3` can't see, so this fails with
+      `ModuleNotFoundError: No module named 'playwright'` — confirmed live on this machine
+      (`python3 -c "import playwright"` fails outside the venv) before writing the fix, not
+      assumed. This broke the exact first-run experience the wiki's Getting Started page walks
+      a new user through via `curl ... install.sh | bash`, right after the install itself
+      succeeds — the most consequential possible place for a bug in these scripts, and one no
+      existing test suite could have caught (no shell-script test coverage exists in this
+      repo). *(fixed 2026-08-24: both scripts now resolve `pipx environment --value
+      PIPX_LOCAL_VENVS`/screenwright/bin/python3 — the interpreter that actually has
+      playwright as an installed dependency — and use it instead of the bare `python3` when a
+      pipx install was detected; the `pip install --user` fallback path is unaffected (that
+      case's `python3` already has playwright installed in the same user site-packages). Caught
+      and fixed a bug in the fix itself before shipping: an initial version tested
+      `[ -x "python3" ]` against the bare command name for the pip-fallback path, which is
+      always false since `-x` doesn't do a PATH lookup — restructured so only the pipx branch
+      ever assigns an absolute interpreter path. Verified with simulated fake-`pipx`/fake-venv
+      dry runs for both the pipx and pip-fallback paths (no real system pipx state touched,
+      no PyPI download), plus `shellcheck` on both files, `bash -n` syntax checks. No
+      README/wiki update needed — the wiki's `install.sh` description stays accurate at its
+      level of abstraction.)*
+
 ## Test coverage gaps
 
 - [x] `_describe_anthropic`/`_describe_openai` mocked and tested (2026-08-24, alongside #6).
