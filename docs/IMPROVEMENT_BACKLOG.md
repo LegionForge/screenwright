@@ -295,6 +295,18 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       `ScreenwrightConfig` construction rejection/acceptance). README's `validate` description
       updated to list this alongside the other things it now catches.)*
 
+- [x] **#21 [medium, found 2026-08-24 by fresh review, not in the original Opus pass] Same
+      duplicate-name failure mode existed one and two levels below flow names (#20)** —
+      `CaptureStep.variants` sharing a name both produce `{name}-{variant.name}.png`; two
+      `capture` steps in the same `Flow` sharing a name both write `{flow_dir}/{name}.png`. Both
+      silently overwrite each other's output, same failure mode as #20, just at a finer grain —
+      a copy-pasted `capture` step or `variants` entry with the rename forgotten is at least as
+      realistic a mistake as a copy-pasted `[[flows]]` block. *(fixed 2026-08-24: added the same
+      `model_validator(mode="after")` pattern to `CaptureStep` (rejects duplicate variant names)
+      and `Flow` (rejects duplicate capture-step names), both naming the duplicate(s) in the
+      error. 5 new tests spanning direct model construction and `load_config()`. README's
+      `validate` description updated.)*
+
 ## Test coverage gaps
 
 - [x] `_describe_anthropic`/`_describe_openai` mocked and tested (2026-08-24, alongside #6).

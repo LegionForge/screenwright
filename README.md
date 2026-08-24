@@ -125,9 +125,9 @@ screenwright flows flow.toml
 ```
 
 Check a config for TOML syntax errors and schema violations (invalid step fields,
-path-traversal names, duplicate flow names, `secret = true` without an `${ENV_VAR}` value, etc.)
-without launching a browser — useful for fast feedback while iterating on a flow, or as a
-pre-flight check in CI:
+path-traversal names, duplicate flow/capture/variant names, `secret = true` without an
+`${ENV_VAR}` value, etc.) without launching a browser — useful for fast feedback while iterating
+on a flow, or as a pre-flight check in CI:
 
 ```bash
 screenwright validate flow.toml

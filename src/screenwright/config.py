@@ -116,6 +116,28 @@ class CaptureStep(BaseModel):
 
     _validate_name = field_validator("name")(validate_safe_name)
 
+    @model_validator(mode="after")
+    def _validate_unique_variant_names(self) -> "CaptureStep":
+        """Reject duplicate variant names instead of silently overwriting output.
+
+        Each variant produces `{name}-{variant.name}.png` — two variants
+        sharing a name would silently overwrite each other's capture, the
+        same failure mode `ScreenwrightConfig`'s duplicate-flow-name
+        validator guards against one level up.
+        """
+        seen: set[str] = set()
+        duplicates: set[str] = set()
+        for variant in self.variants:
+            if variant.name in seen:
+                duplicates.add(variant.name)
+            seen.add(variant.name)
+        if duplicates:
+            raise ValueError(
+                f"Duplicate variant name(s) in capture {self.name!r}: "
+                f"{', '.join(sorted(duplicates))}. Each variant must have a unique name."
+            )
+        return self
+
 
 class FillStep(BaseModel):
     action: Literal["fill"]
@@ -221,6 +243,31 @@ class Flow(BaseModel):
     """
 
     _validate_name = field_validator("name")(validate_safe_name)
+
+    @model_validator(mode="after")
+    def _validate_unique_capture_names(self) -> "Flow":
+        """Reject duplicate capture-step names within a flow.
+
+        Each `capture` step writes to `{flow_dir}/{name}{suffix}.png`
+        (suffix present only for variants) — two capture steps sharing a
+        name would silently overwrite each other's output, one level up
+        from `CaptureStep`'s own duplicate-variant-name check and one
+        level down from `ScreenwrightConfig`'s duplicate-flow-name check.
+        """
+        seen: set[str] = set()
+        duplicates: set[str] = set()
+        for step in self.steps:
+            if isinstance(step, CaptureStep):
+                if step.name in seen:
+                    duplicates.add(step.name)
+                seen.add(step.name)
+        if duplicates:
+            raise ValueError(
+                f"Duplicate capture name(s) in flow {self.name!r}: "
+                f"{', '.join(sorted(duplicates))}. Each capture step must have a unique name "
+                "within its flow — output paths are derived from it."
+            )
+        return self
 
 
 class ScreenwrightConfig(BaseModel):

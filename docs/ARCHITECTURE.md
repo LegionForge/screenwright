@@ -198,3 +198,10 @@ sequenceDiagram
   the realistic trigger. Fixed with a `model_validator(mode="after")` on `ScreenwrightConfig`
   that rejects (doesn't silently dedupe) any duplicate name, matching the reject-don't-sanitize
   philosophy `validate_safe_name` already established elsewhere in this codebase.
+- **Two more instances of that exact failure mode, one and two levels down.**
+  `CaptureStep.variants` sharing a name both produce `{name}-{variant.name}.png`, silently
+  overwriting each other; two `capture` steps in the same `Flow` sharing a name both write
+  `{flow_dir}/{name}.png`, same result. Closed with the same `model_validator` pattern on
+  `CaptureStep` (`_validate_unique_variant_names`) and `Flow`
+  (`_validate_unique_capture_names`) respectively — same reject-don't-sanitize approach at every
+  level where a config value flows directly into an output filename.

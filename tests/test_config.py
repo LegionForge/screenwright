@@ -197,6 +197,30 @@ def test_load_rejects_duplicate_flow_names(tmp_path):
         load_config(p)
 
 
+def test_load_rejects_duplicate_capture_names(tmp_path):
+    p = write_toml(
+        tmp_path,
+        """
+        [[flows]]
+        name = "homepage"
+
+          [[flows.steps]]
+          action = "navigate"
+          url = "/"
+
+          [[flows.steps]]
+          action = "capture"
+          name = "hero"
+
+          [[flows.steps]]
+          action = "capture"
+          name = "hero"
+        """,
+    )
+    with pytest.raises(ValidationError, match="Duplicate capture name"):
+        load_config(p)
+
+
 def test_screenwright_config_accepts_unique_flow_names_directly():
     cfg = ScreenwrightConfig(
         flows=[Flow(name="a", steps=[]), Flow(name="b", steps=[])],
@@ -320,6 +344,45 @@ def test_capture_step_accepts_variants():
 def test_variant_rejects_path_traversal_name():
     with pytest.raises(ValidationError):
         Variant(name="../escape")
+
+
+def test_capture_step_rejects_duplicate_variant_names():
+    # Each variant produces {name}-{variant.name}.png — two variants
+    # sharing a name would silently overwrite each other's capture.
+    with pytest.raises(ValidationError, match="Duplicate variant name"):
+        CaptureStep(
+            action="capture",
+            name="shot",
+            variants=[
+                {"name": "mobile", "viewport_width": 390},
+                {"name": "mobile", "viewport_width": 400},
+            ],
+        )
+
+
+def test_flow_rejects_duplicate_capture_names():
+    # Each capture step writes to {flow_dir}/{name}.png — two capture
+    # steps sharing a name would silently overwrite each other's output.
+    with pytest.raises(ValidationError, match="Duplicate capture name"):
+        Flow(
+            name="demo",
+            steps=[
+                CaptureStep(action="capture", name="shot"),
+                NavigateStep(action="navigate", url="/"),
+                CaptureStep(action="capture", name="shot"),
+            ],
+        )
+
+
+def test_flow_accepts_unique_capture_names():
+    flow = Flow(
+        name="demo",
+        steps=[
+            CaptureStep(action="capture", name="shot-a"),
+            CaptureStep(action="capture", name="shot-b"),
+        ],
+    )
+    assert len(flow.steps) == 2
 
 
 def test_capture_step_deterministic_defaults():
