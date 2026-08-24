@@ -72,7 +72,18 @@ def run(
                     description=f"Describing screenshots: [bold]{flow_def.name}[/bold]",
                 )
                 for capture in result.captures:
-                    capture.metadata = describe(capture.path, cfg.vision)
+                    try:
+                        capture.metadata = describe(capture.path, cfg.vision)
+                    except Exception as exc:
+                        # A single bad describe() call (API blip, bad key,
+                        # provider outage) must not abort every remaining
+                        # capture in this flow or every remaining flow in
+                        # the run — leave metadata unset (output.py already
+                        # tolerates that) and keep going.
+                        console.print(
+                            f"[yellow]Warning:[/yellow] describe failed for "
+                            f"{capture.capture_name!r}: {exc}"
+                        )
 
             write_flow_output(result, output_root)
             all_results.append(result)

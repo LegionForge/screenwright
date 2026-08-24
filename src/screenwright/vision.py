@@ -2,11 +2,44 @@ from __future__ import annotations
 
 import base64
 import json
+import time
 from pathlib import Path
+from typing import Callable, TypeVar
 
 from pydantic import BaseModel, Field
 
 from screenwright.config import VisionConfig
+
+_T = TypeVar("_T")
+_TRANSIENT_STATUS_CODES = {429, 500, 502, 503, 504}
+_MAX_RETRIES = 2
+_BACKOFF_BASE_SECONDS = 1.0
+
+
+def _is_transient(exc: Exception) -> bool:
+    """Best-effort check for retryable failures (rate limits, transient 5xx, timeouts).
+
+    Deliberately conservative: retrying a non-transient failure (bad API key,
+    malformed request) just burns time and cost for the same eventual error,
+    so this only retries when there's a real signal the failure might clear.
+    """
+    status = getattr(exc, "status_code", None) or getattr(
+        getattr(exc, "response", None), "status_code", None
+    )
+    if status in _TRANSIENT_STATUS_CODES:
+        return True
+    return isinstance(exc, (TimeoutError, ConnectionError))
+
+
+def _with_retry(fn: Callable[[], _T]) -> _T:
+    for attempt in range(_MAX_RETRIES + 1):
+        try:
+            return fn()
+        except Exception as exc:
+            if attempt == _MAX_RETRIES or not _is_transient(exc):
+                raise
+            time.sleep(_BACKOFF_BASE_SECONDS * (2**attempt))
+    raise AssertionError("unreachable")  # pragma: no cover
 
 
 class ScreenshotMetadata(BaseModel):
@@ -138,13 +171,20 @@ def _describe_openai(image_path: Path, cfg: VisionConfig) -> ScreenshotMetadata:
 
 
 def describe(image_path: Path, cfg: VisionConfig) -> ScreenshotMetadata:
-    """Describe a screenshot using the configured vision provider."""
+    """Describe a screenshot using the configured vision provider.
+
+    Transient failures (rate limits, 5xx, timeouts) are retried with
+    exponential backoff — see _with_retry/_is_transient — but this still
+    raises on the final attempt or on a non-transient error. Callers that
+    describe multiple screenshots in a loop (cli.py's `run` command) should
+    catch per-call, not assume this never raises.
+    """
     if cfg.provider == "anthropic":
-        return _describe_anthropic(image_path, cfg)
+        return _with_retry(lambda: _describe_anthropic(image_path, cfg))
     elif cfg.provider == "ollama":
-        return _describe_ollama(image_path, cfg)
+        return _with_retry(lambda: _describe_ollama(image_path, cfg))
     elif cfg.provider == "openai":
-        return _describe_openai(image_path, cfg)
+        return _with_retry(lambda: _describe_openai(image_path, cfg))
     else:
         raise ValueError(
             f"Unknown vision provider: {cfg.provider!r}. Use 'anthropic', 'ollama', or 'openai'."

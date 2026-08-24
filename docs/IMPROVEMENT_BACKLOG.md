@@ -61,10 +61,21 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       scope in README/wiki. README gained a "Credentials in Login Flows" section; wiki's
       Flow-Reference page synced. Tests: 3 config-validator tests, 3 `_resolve_fill_value` unit
       tests, 2 `run_flow` integration tests (resolves + reports missing var clearly).)*
-- [ ] **#5 [medium] `describe()` failures abort an entire run mid-way** — `cli.py:74-77`. One
+- [x] **#5 [medium] `describe()` failures abort an entire run mid-way** — `cli.py:74-77`. One
       API blip (429/timeout) raises out of the loop before `write_flow_output` — screenshots are
       on disk but no index.md, no subsequent flows run. Fix: per-capture try/except (leave
       `metadata=None`, output layer already tolerates it), bounded retry w/ exponential backoff.
+      *(fixed 2026-08-24: `vision.py` gained `_with_retry`/`_is_transient` — retries up to 2x
+      with exponential backoff (1s/2s) when an exception's `status_code` (or `.response.
+      status_code`) is 429/500/502/503/504, or it's a `TimeoutError`/`ConnectionError`;
+      deliberately does NOT retry other exceptions (bad key, malformed request) since that would
+      just burn time/cost on a guaranteed-repeat failure. `describe()` now routes every provider
+      call through this. `cli.py`'s per-capture loop wraps each `describe()` call in try/except —
+      a failure prints a warning and leaves that capture's `metadata=None` (already tolerated by
+      `output.py`) instead of aborting every remaining capture/flow. Tests: 6 retry/transient-
+      detection unit tests in `test_vision.py`, 1 CLI integration test via Typer's `CliRunner`
+      (`tests/test_cli.py`, new file — a first, narrow start on the "cli.py is untested"
+      coverage gap below, not a full pass at it).)*
 - [ ] **#6 [medium] Provider response unpacking assumes a shape that isn't guaranteed** —
       `vision.py:91,137`. OpenAI `content=None` on refusal/length-stop → AttributeError, not a
       useful error. Anthropic's first content block isn't guaranteed text. `max_tokens=512`
