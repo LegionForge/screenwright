@@ -408,6 +408,19 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       guarding the "(root)" fallback specifically rather than just re-testing what #20 already
       covers. No code changed.)*
 
+- [x] **#28 [medium, market-positioning, found 2026-08-24 by fresh review] Wiki FAQ's
+      shot-scraper comparison actively steered users away from features Screenwright already
+      has** — "How is this different from `shot-scraper`?" ended with "If you need HAR/PDF/
+      accessibility-tree capture specifically, shot-scraper is the better fit for that." All
+      three shipped this session (findings/features #4, #9) — the answer was telling readers to
+      go elsewhere for capabilities Screenwright had already gained, which costs adoption rather
+      than just being stale trivia. *(fixed 2026-08-24: rewrote to state HAR/PDF/accessibility-
+      tree are now built in, reposition the actual differentiator (MCP-native + structured
+      partial results + vision-description) accurately, and narrow the remaining
+      shot-scraper-is-better-fit case to genuine raw-capture-at-scale use cases (batch URL
+      capture, PDF-from-HTML without a URL) that are still out of scope by design. Wiki-only
+      change — no README/DECISIONS.md claim needed the same fix, checked and confirmed clean.)*
+
 ## Test coverage gaps
 
 - [x] `_describe_anthropic`/`_describe_openai` mocked and tested (2026-08-24, alongside #6).
