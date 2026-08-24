@@ -546,6 +546,16 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       caught the `list_flows` omission live while being written, the same way it would catch a
       future tool rename left stale in this string.)*
 
+- [x] **#36 [low, follows directly from #34, found 2026-08-24] `describe_flow`'s docstring
+      still explained a null `metadata` field with the pre-#34 reasons only** — said "vision was
+      disabled, or `describe()` failed for just that one," missing the new, now most-common
+      reason: `run_flow_tool` was simply called without `vision_describe=true` (its default). A
+      first attempted fix introduced a second inaccuracy — claiming `cfg.vision_describe` (the
+      TOML field the CLI checks) was also a factor — caught by re-reading `run_flow_tool`'s own
+      code, which never reads that field at all, only its own `vision_describe` parameter.
+      *(fixed 2026-08-24: corrected the docstring, `docs/MCP_TOOLS.md`, and the wiki's
+      MCP-Tools-Reference page to name the actual current reasons. No code changed.)*
+
 ## Test coverage gaps
 
 - [x] `_describe_anthropic`/`_describe_openai` mocked and tested (2026-08-24, alongside #6).

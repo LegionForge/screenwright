@@ -230,8 +230,10 @@ async def describe_flow(
             {"name": str, "path": str, "metadata": dict | None}, ...
         ]}. index_md and captures are empty/None if the flow's output
         directory doesn't exist yet (it hasn't been run). A capture with no
-        .json sidecar (vision was disabled, or describe() failed for just
-        that one) has metadata: None rather than being omitted.
+        .json sidecar has metadata: None rather than being omitted — the
+        common case being run_flow_tool was called without
+        vision_describe=true (its default), but also covers describe()
+        failing for just that one capture.
     """
     # flow_name builds a filesystem path below (out_root / flow_name) and,
     # like capture_url/capture_element's `name` param, can come from an LLM

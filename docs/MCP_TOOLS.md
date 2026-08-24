@@ -125,9 +125,9 @@ first.
 ```
 
 `index_md` is `null` and `captures` is `[]` if the flow's output directory doesn't exist yet
-(it hasn't been run). A capture with no `.json` sidecar — vision was disabled, or `describe()`
-failed for just that one — has `metadata: null` rather than being silently dropped from the
-bundle.
+(it hasn't been run). A capture with no `.json` sidecar — the common case being `run_flow_tool`
+was called without `vision_describe=true` (its default), or `describe()` failing for just that
+one — has `metadata: null` rather than being silently dropped from the bundle.
 
 ## `describe_screenshot`
 
