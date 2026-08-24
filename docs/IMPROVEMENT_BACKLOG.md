@@ -475,6 +475,22 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       README/wiki update needed — the wiki's `install.sh` description stays accurate at its
       level of abstraction.)*
 
+- [x] **#32 [medium, found 2026-08-24 by fresh review, follows directly from #31] No CI job
+      exercised `scripts/*.sh` at all** — exactly how #31's pipx/Chromium bug shipped and went
+      undetected: nothing in `ci.yml` ever ran, linted, or even syntax-checked these scripts.
+      A full functional smoke test (actually running `pipx install` against the local checkout
+      in CI) would have caught #31 directly, but is meaningfully heavier scope — needs building
+      a wheel or configuring pipx against a local path rather than PyPI, plus cleanup — so this
+      lands the lighter, still-valuable half first: `shellcheck` linting, which catches an
+      entire class of shell bugs (unquoted variables that break on paths with spaces, unset
+      variables, wrong test operators — the same style of mistake this session's own fix to
+      #31 nearly reintroduced, caught only by manual review that time) automatically on every
+      push, rather than only when someone happens to read the script closely. *(fixed
+      2026-08-24: added a `shellcheck scripts/*.sh` step to `ci.yml`'s `test` job, run first
+      (before the Python setup) for fast feedback; confirmed clean against the current scripts,
+      including the #31 fix. A real functional pipx-install smoke test remains a valuable,
+      larger follow-up, not done here.)*
+
 ## Test coverage gaps
 
 - [x] `_describe_anthropic`/`_describe_openai` mocked and tested (2026-08-24, alongside #6).
