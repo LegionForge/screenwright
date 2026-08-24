@@ -136,18 +136,30 @@ async def run_flow(
 
         viewport = {"width": flow.viewport_width, "height": flow.viewport_height}
         context: Optional[BrowserContext] = None
-        if flow.record:
-            context = await browser.new_context(
-                viewport=viewport,
-                record_video_dir=str(flow_dir),
-                record_video_size={"width": flow.record_width, "height": flow.record_height},
-            )
-            page = await context.new_page()
-        else:
-            page = await browser.new_page(viewport=viewport)
-        page.set_default_timeout(flow.timeout_ms)
+        page: Optional[Page] = None
+        try:
+            if flow.record:
+                context = await browser.new_context(
+                    viewport=viewport,
+                    storage_state=flow.storage_state,
+                    record_video_dir=str(flow_dir),
+                    record_video_size={"width": flow.record_width, "height": flow.record_height},
+                )
+                page = await context.new_page()
+            else:
+                page = await browser.new_page(viewport=viewport, storage_state=flow.storage_state)
+            page.set_default_timeout(flow.timeout_ms)
+        except Exception as exc:
+            # A bad storage_state path is the likeliest failure here, but
+            # this covers any browser/context/page setup error — none of
+            # this was wrapped before, so a failure at this point used to
+            # propagate out of run_flow as an unhandled exception, breaking
+            # the "always return a FlowResult, never raise" contract the
+            # per-step error handling below establishes.
+            result.error = f"Failed to start browser session: {exc}"
 
-        for index, step in enumerate(flow.steps):
+        steps_to_run = enumerate(flow.steps) if page is not None else []
+        for index, step in steps_to_run:
             try:
                 if isinstance(step, NavigateStep):
                     url = step.url
@@ -199,7 +211,7 @@ async def run_flow(
         # (the .webm only flushes on context.close()) and leaks the browser
         # process. This runs whether or not the loop above broke early.
         try:
-            if context is not None:
+            if context is not None and page is not None:
                 video = page.video
                 await page.close()
                 await context.close()

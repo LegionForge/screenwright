@@ -77,9 +77,14 @@ sequenceDiagram
 - **Vision is fully optional and provider-swappable** so a private/air-gapped flow (Moondream2
   via Ollama) and a cloud flow (Claude Haiku / GPT-4o-mini) use the exact same `describe()`
   interface and the exact same `ScreenshotMetadata` shape downstream.
-- **A step failure never raises out of `run_flow`.** The step loop catches per-step exceptions,
-  records `FlowResult.error`/`failed_step_index`, and always finalizes video + closes the
-  browser in a `finally` block regardless of where the loop stopped — a bad selector on step 4
-  of 5 still leaves you with 3 captures and a valid video, not a stack trace and an orphaned
-  `.webm`. `run_flow_tool` surfaces this as a `{captures, error, failed_step_index, ...}` dict so
-  an agent driving Screenwright sees a partial result it can act on, not a failed tool call.
+- **Neither browser/context/page setup nor a step failure ever raises out of `run_flow`.** Setup
+  (including loading `Flow.storage_state`) and the step loop are both wrapped — a bad
+  `storage_state` path, a missing/expired session, or a bad selector on step 4 of 5 all land on
+  `FlowResult.error`/`failed_step_index`, and video is always finalized + the browser always
+  closed in a `finally` block regardless of where things stopped. `run_flow_tool` surfaces this
+  as a `{captures, error, failed_step_index, ...}` dict so an agent driving Screenwright sees a
+  partial result it can act on, not a failed tool call or an unhandled exception.
+- **Auth is session injection, not scripted login.** `Flow.storage_state` loads Playwright's own
+  cookie/localStorage export before any step runs — the standard, robust way to capture an
+  already-authenticated session for an internal app, instead of re-running a fragile
+  fill/click login sequence (2FA, CAPTCHAs, rate limits) on every capture.

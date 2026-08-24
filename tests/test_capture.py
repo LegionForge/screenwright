@@ -479,6 +479,113 @@ def test_run_flow_respects_custom_timeout(tmp_path):
     assert elapsed < 5  # well under the default 30s, proving timeout_ms took effect
 
 
+def test_run_flow_with_valid_storage_state_succeeds(tmp_path):
+    # An empty-but-well-formed storage_state (Playwright's own format) must
+    # load without error — proves the plumbing (passed through to
+    # browser.new_page/new_context) works, independent of whether it
+    # actually contains a useful session for this test's blank page.
+    import json
+
+    storage_state_path = tmp_path / "state.json"
+    storage_state_path.write_text(json.dumps({"cookies": [], "origins": []}))
+
+    url = _write_page(tmp_path)
+    toml_path = tmp_path / "config.toml"
+    toml_path.write_text(
+        f"""
+        [screenwright]
+        base_url = ""
+
+        [[flows]]
+        name = "authed"
+        storage_state = "{storage_state_path}"
+
+          [[flows.steps]]
+          action = "navigate"
+          url = "{url}"
+
+          [[flows.steps]]
+          action = "capture"
+          name = "shot"
+        """
+    )
+    cfg = load_config(toml_path)
+    flow = cfg.get_flow("authed")
+    output_root = tmp_path / "output"
+
+    import asyncio
+
+    result = asyncio.run(run_flow(flow, cfg, output_root))
+
+    assert result.error is None
+    assert len(result.captures) == 1
+
+
+def test_run_flow_with_missing_storage_state_reports_clean_error(tmp_path):
+    # Session setup (including storage_state) happens before the step loop
+    # — this proves a failure there is reported on the result like any
+    # step failure, not raised as an unhandled exception out of run_flow.
+    url = _write_page(tmp_path)
+    toml_path = tmp_path / "config.toml"
+    toml_path.write_text(
+        f"""
+        [screenwright]
+        base_url = ""
+
+        [[flows]]
+        name = "authed"
+        storage_state = "{tmp_path / "does-not-exist.json"}"
+
+          [[flows.steps]]
+          action = "navigate"
+          url = "{url}"
+        """
+    )
+    cfg = load_config(toml_path)
+    flow = cfg.get_flow("authed")
+    output_root = tmp_path / "output"
+
+    import asyncio
+
+    result = asyncio.run(run_flow(flow, cfg, output_root))
+
+    assert result.error is not None
+    assert "Failed to start browser session" in result.error
+    assert result.captures == []
+
+
+def test_run_flow_with_malformed_storage_state_reports_clean_error(tmp_path):
+    storage_state_path = tmp_path / "state.json"
+    storage_state_path.write_text("not valid json at all")
+
+    url = _write_page(tmp_path)
+    toml_path = tmp_path / "config.toml"
+    toml_path.write_text(
+        f"""
+        [screenwright]
+        base_url = ""
+
+        [[flows]]
+        name = "authed"
+        storage_state = "{storage_state_path}"
+
+          [[flows.steps]]
+          action = "navigate"
+          url = "{url}"
+        """
+    )
+    cfg = load_config(toml_path)
+    flow = cfg.get_flow("authed")
+    output_root = tmp_path / "output"
+
+    import asyncio
+
+    result = asyncio.run(run_flow(flow, cfg, output_root))
+
+    assert result.error is not None
+    assert result.captures == []
+
+
 def test_run_flow_check_and_select_steps(tmp_path):
     url = _write_page(tmp_path)
     toml_path = tmp_path / "config.toml"

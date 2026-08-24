@@ -284,6 +284,7 @@ Set on a flow itself, not on individual steps:
 | `name` | string | required | Flow name — becomes the output subdirectory |
 | `viewport_width` / `viewport_height` | int | `1280` / `720` | Browser viewport size for every step in this flow |
 | `timeout_ms` | int | `30000` | Default timeout for navigation and actions (selectors, clicks, etc.) — a step that exceeds this fails with a clear "Timeout" error via the normal per-step error handling, rather than hanging |
+| `storage_state` | string | `null` | Path to a Playwright `storage_state` JSON file (cookies + localStorage) to load before the flow runs — capture an already-authenticated session instead of scripting a login with `fill`/`click` steps every run. Generate one with `playwright codegen --save-storage=state.json` after logging in manually, or `context.storage_state(path=...)` in a setup script. |
 | `record` / `record_width` / `record_height` / `record_mp4` | — | see [Video Recording](#video-recording) | Flow-level video capture |
 
 ### Flow steps
@@ -351,6 +352,37 @@ stricter check.
 This only controls what's *typed into the page* — it does not redact what a subsequent
 `capture` step sees. If a screenshot of that field must not show the value, mask it in the UI
 itself or don't add a `capture` step until after the field is cleared/hidden.
+
+### Skipping login entirely with `storage_state`
+
+For internal apps/dashboards where re-running an actual login flow every capture is slow,
+fragile (2FA, CAPTCHAs, rate limits), or just unnecessary — set `storage_state` on the flow to
+load an already-authenticated session's cookies and localStorage instead of scripting the login:
+
+```toml
+[[flows]]
+name = "admin-dashboard"
+storage_state = "auth/admin-session.json"
+
+  [[flows.steps]]
+  action = "navigate"
+  url = "/admin"   # already logged in — no fill/click login steps needed
+
+  [[flows.steps]]
+  action = "capture"
+  name = "dashboard"
+```
+
+Generate the session file once, outside Screenwright:
+
+```bash
+playwright codegen --save-storage=auth/admin-session.json https://your-app.example.com
+# log in manually in the browser window that opens, then close it
+```
+
+Treat that JSON file as a credential — it's a live, replayable session, not just a password.
+Keep it out of version control (add it to `.gitignore`) and rotate it if the underlying session
+expires or is revoked.
 
 ---
 

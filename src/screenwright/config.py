@@ -132,6 +132,17 @@ class Flow(BaseModel):
     viewport_width: int = 1280
     viewport_height: int = 720
     timeout_ms: int = 30000
+    storage_state: str | None = None
+    """Path to a Playwright storage_state JSON file (cookies + localStorage) to
+    load before the flow's steps run — the standard way to capture an
+    already-authenticated session instead of scripting a login flow with
+    `fill`/`click` steps every run. Generate one with Playwright's own
+    tooling (e.g. `playwright codegen --save-storage=state.json` after
+    logging in manually) or `context.storage_state(path=...)` in a setup
+    script. Not validated at config-load time (this only touches the
+    filesystem when the flow actually runs); a missing/invalid file
+    surfaces as a normal Playwright error when the browser context opens.
+    """
 
     _validate_name = field_validator("name")(validate_safe_name)
 

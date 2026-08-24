@@ -182,8 +182,18 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
 
 1. **Structured partial results instead of exceptions** from `run_flow_tool` — falls out of
    fixing #1. Single highest-leverage change for agent usability.
-2. **Auth/session injection** — `storage_state` file, cookie list, or HTTP basic-auth on the
-   context. Almost every internal app a docs tool targets is behind a login.
+2. **Auth/session injection** *(shipped 2026-08-24)* — `Flow.storage_state` loads a Playwright
+   `storage_state` JSON file (cookies + localStorage) before the flow runs, via
+   `browser.new_page(storage_state=...)`/`new_context(storage_state=...)`. NOT implemented:
+   inline cookie list or HTTP basic-auth directly in TOML — `storage_state` covers the common
+   case (capture a session once via `playwright codegen --save-storage=...`, reuse it) and is
+   Playwright's own standard mechanism, so this is likely sufficient; revisit only if a real
+   need for inline cookies/basic-auth surfaces. Also fixed while implementing this: browser/
+   context/page *setup* (not just the step loop) is now wrapped in the same try/except as steps
+   — previously a failure there (which storage_state loading is a new, realistic way to trigger:
+   a missing/malformed file) would have propagated out of `run_flow` as an unhandled exception,
+   contradicting the "always return a `FlowResult`, never raise" contract from finding #1. 3 new
+   tests (valid/missing/malformed storage_state). README/API_REFERENCE/ARCHITECTURE/wiki updated.
 3. **Viewport/theme variants** — one flow → matrix of captures (`{width=390, name="mobile"}`,
    `{color_scheme="dark"}`, etc.) instead of duplicating the whole flow per variant.
 4. **Accessibility snapshot export** (`page.accessibility.snapshot()`) — higher-value output for
