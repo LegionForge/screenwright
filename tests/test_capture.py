@@ -1358,3 +1358,52 @@ def test_run_flow_reports_missing_ffmpeg_instead_of_raising(tmp_path, monkeypatc
     assert result.error is not None
     assert "mp4 conversion failed" in result.error
     assert "ffmpeg" in result.error.lower()
+
+
+def test_run_flow_reports_video_finalize_failure_instead_of_raising(tmp_path, monkeypatch):
+    # page.close()/context.close()/video.path()/the .webm rename can all
+    # raise (a full disk, a page that crashed mid-flow, a Playwright
+    # internal error). This was the one part of the finalize block still
+    # able to propagate out of run_flow unhandled — the mp4-conversion fix
+    # above covers a narrower case inside this same block. Simulated
+    # deterministically via a broken Path.replace rather than depending on
+    # an actual disk-full/crashed-page condition.
+    def broken_replace(_self, _target):
+        raise OSError("simulated disk error during video finalize")
+
+    monkeypatch.setattr(Path, "replace", broken_replace)
+
+    url = _write_page(tmp_path)
+    toml_path = tmp_path / "config.toml"
+    toml_path.write_text(
+        f"""
+        [screenwright]
+        base_url = ""
+
+        [[flows]]
+        name = "demo-video-finalize-failure"
+        record = true
+
+          [[flows.steps]]
+          action = "navigate"
+          url = "{url}"
+
+          [[flows.steps]]
+          action = "capture"
+          name = "shot"
+        """
+    )
+    cfg = load_config(toml_path)
+    flow = cfg.get_flow("demo-video-finalize-failure")
+    output_root = tmp_path / "output"
+
+    import asyncio
+
+    result = asyncio.run(run_flow(flow, cfg, output_root))
+
+    assert len(result.captures) == 1
+    assert result.captures[0].path.exists()
+    assert result.video_path is None
+    assert result.error is not None
+    assert "Failed to finalize video/HAR" in result.error
+    assert "simulated disk error" in result.error

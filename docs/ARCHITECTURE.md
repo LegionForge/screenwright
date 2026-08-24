@@ -173,3 +173,12 @@ sequenceDiagram
   attempt. Fixed by wrapping the body in try/finally, matching `run_flow`'s existing pattern
   exactly — no behavior change to what gets raised or returned on success, only a guarantee that
   cleanup always runs.
+- **The video/HAR finalize block's `page.close()`/`context.close()`/`.webm` rename could still
+  raise past the mp4-conversion fix.** That fix wrapped only `_convert_to_mp4`; the surrounding
+  `page.close()`, `context.close()`, `video.path()`, and `raw_path.replace(final_path)` calls
+  were still unguarded — a full disk, a page that crashed mid-flow, or a Playwright internal
+  error on close would still propagate out of `run_flow` unhandled. Wrapped the whole block in
+  an outer try/except that appends `Failed to finalize video/HAR: ...` to `result.error`
+  (chained with any earlier step/mp4 error), finally completing the "always return a
+  `FlowResult`, never raise" contract for every path through `run_flow`'s finalize logic, not
+  just the mp4-specific one.

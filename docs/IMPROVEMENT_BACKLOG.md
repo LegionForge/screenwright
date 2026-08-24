@@ -242,6 +242,21 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       payloads finding #2's own tests use. `docs/MCP_TOOLS.md` and the wiki's
       MCP-Tools-Reference page updated to document the constraint.)*
 
+- [x] **#18 [high, found 2026-08-24 by fresh review, not in the original Opus pass] Video/HAR
+      finalize block could still raise past the mp4-conversion fix** — `capture.py`'s finalize
+      block wraps `_convert_to_mp4` in try/except (finding #14), but the surrounding
+      `page.close()`, `context.close()`, `video.path()`, and `raw_path.replace(final_path)`
+      calls were still unguarded. A full disk, a page that crashed mid-flow, or a Playwright
+      internal error on close would still propagate out of `run_flow` unhandled — the same class
+      of bug as #14 and #16, but for the rest of this one block rather than the finalize call
+      that got fixed first. *(fixed 2026-08-24: wrapped the whole block (not just the mp4-
+      conversion call) in an outer try/except, appending `Failed to finalize video/HAR: ...` to
+      `result.error` — chained with any earlier step/mp4 error rather than replacing it. This
+      completes the "never raise" contract for every path through `run_flow`'s finalize logic.
+      1 new test (`test_run_flow_reports_video_finalize_failure_instead_of_raising`),
+      monkeypatching `Path.replace` to raise deterministically rather than depending on an
+      actual disk-full or crashed-page condition.)*
+
 ## Test coverage gaps
 
 - [x] `_describe_anthropic`/`_describe_openai` mocked and tested (2026-08-24, alongside #6).

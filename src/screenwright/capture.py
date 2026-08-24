@@ -335,31 +335,47 @@ async def run_flow(
         # installed Playwright before relying on it.
         try:
             if page is not None:
-                video = page.video if context is not None else None
-                await page.close()
-                if context is not None:
-                    await context.close()
-                if video is not None:
-                    raw_path = Path(await video.path())
-                    final_path = flow_dir / f"{flow.name}.webm"
-                    raw_path.replace(final_path)
-                    result.video_path = final_path
-                    if flow.record_mp4:
-                        try:
-                            result.video_mp4_path = await _convert_to_mp4(final_path)
-                        except Exception as exc:
-                            # Missing ffmpeg or a failed conversion must not
-                            # crash the whole call and lose the .webm/captures
-                            # that already succeeded — report it on the
-                            # result instead, same "always return a
-                            # FlowResult, never raise" contract the step
-                            # loop and setup path already follow.
-                            mp4_error = f"mp4 conversion failed: {exc}"
-                            result.error = (
-                                f"{result.error}; {mp4_error}" if result.error else mp4_error
-                            )
-                if har_path is not None:
-                    result.har_path = har_path
+                try:
+                    video = page.video if context is not None else None
+                    await page.close()
+                    if context is not None:
+                        await context.close()
+                    if video is not None:
+                        raw_path = Path(await video.path())
+                        final_path = flow_dir / f"{flow.name}.webm"
+                        raw_path.replace(final_path)
+                        result.video_path = final_path
+                        if flow.record_mp4:
+                            try:
+                                result.video_mp4_path = await _convert_to_mp4(final_path)
+                            except Exception as exc:
+                                # Missing ffmpeg or a failed conversion must
+                                # not crash the whole call and lose the
+                                # .webm/captures that already succeeded —
+                                # report it on the result instead, same
+                                # "always return a FlowResult, never raise"
+                                # contract the step loop and setup path
+                                # already follow.
+                                mp4_error = f"mp4 conversion failed: {exc}"
+                                result.error = (
+                                    f"{result.error}; {mp4_error}" if result.error else mp4_error
+                                )
+                    if har_path is not None:
+                        result.har_path = har_path
+                except Exception as exc:
+                    # page.close()/context.close()/video.path()/the .webm
+                    # rename can all raise (a full disk, a page that
+                    # crashed mid-flow, a Playwright internal error) — this
+                    # was the one piece of the finalize block still able to
+                    # propagate out of run_flow unhandled, breaking the
+                    # same "never raise" contract the mp4-conversion fix
+                    # above already established for this block. Captures
+                    # already written and any error from the step loop
+                    # stay intact; this is reported alongside, not instead.
+                    finalize_error = f"Failed to finalize video/HAR: {exc}"
+                    result.error = (
+                        f"{result.error}; {finalize_error}" if result.error else finalize_error
+                    )
         finally:
             await browser.close()
 
