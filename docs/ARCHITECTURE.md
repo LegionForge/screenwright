@@ -143,3 +143,14 @@ sequenceDiagram
   persisted baseline store was considered and deferred as materially larger scope for the same
   Opus-review-backlog item; this exact-byte MVP covers the CI-gate use case (did anything change
   at all) without it.
+- **Navigation retries with backoff, mirroring `vision.py`'s existing retry pattern but async.**
+  `vision.py`'s `_with_retry` is synchronous (the vendor SDK clients it wraps are synchronous);
+  `page.goto()` is async, so `capture.py` gained its own `_goto_with_retry`/
+  `_is_transient_navigation_error` pair rather than sharing code across the sync/async divide.
+  Retries up to 2x with the same 1s/2s exponential backoff as vision, only on
+  `playwright.async_api.TimeoutError` or an `Error` whose message contains `net::ERR_` (DNS
+  hiccup, connection reset) — anything else (a 404, a malformed selector-bearing URL) is a real
+  error that retrying would just delay reporting. Applied to both `run_flow`'s per-step
+  `NavigateStep` handling and `capture_single_url`'s initial navigation; the existing per-step
+  try/except in `run_flow` already turns an exhausted-retries raise into `FlowResult.error`, so
+  no additional error-handling changes were needed there.

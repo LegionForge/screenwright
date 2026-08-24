@@ -8,6 +8,8 @@ from pathlib import Path
 from typing import Optional
 
 from playwright.async_api import Browser, BrowserContext, Page, async_playwright
+from playwright.async_api import Error as PlaywrightError
+from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 
 from screenwright.config import (
     ENV_REF_RE,
@@ -23,6 +25,33 @@ from screenwright.config import (
     SelectStep,
     WaitStep,
 )
+
+_NAV_MAX_RETRIES = 2
+_NAV_BACKOFF_BASE_SECONDS = 1.0
+
+
+def _is_transient_navigation_error(exc: Exception) -> bool:
+    """Best-effort check for retryable navigation failures.
+
+    Deliberately conservative, mirroring vision.py's `_is_transient`: a
+    navigation timeout or a `net::ERR_*` failure (DNS hiccup, connection
+    reset, temporary refusal) can clear on retry; anything else (a 404, a
+    malformed URL) is a real error that retrying just delays reporting.
+    """
+    if isinstance(exc, PlaywrightTimeoutError):
+        return True
+    return isinstance(exc, PlaywrightError) and "net::ERR_" in str(exc)
+
+
+async def _goto_with_retry(page: Page, url: str, wait_until: str) -> None:
+    for attempt in range(_NAV_MAX_RETRIES + 1):
+        try:
+            await page.goto(url, wait_until=wait_until)
+            return
+        except Exception as exc:
+            if attempt == _NAV_MAX_RETRIES or not _is_transient_navigation_error(exc):
+                raise
+            await asyncio.sleep(_NAV_BACKOFF_BASE_SECONDS * (2**attempt))
 
 
 def _resolve_fill_value(value: str) -> str:
@@ -139,7 +168,7 @@ async def capture_single_url(
             viewport={"width": viewport_width, "height": viewport_height}
         )
         page.set_default_timeout(timeout_ms)
-        await page.goto(url, wait_until=wait_until)
+        await _goto_with_retry(page, url, wait_until)
         await _capture_page_or_element(page, output_path, selector, animations=animations)
         await browser.close()
     return output_path
@@ -194,7 +223,7 @@ async def run_flow(
                     url = step.url
                     if url.startswith("/"):
                         url = config.base_url.rstrip("/") + url
-                    await page.goto(url, wait_until=step.wait_until)
+                    await _goto_with_retry(page, url, step.wait_until)
 
                 elif isinstance(step, CaptureStep):
                     for variant in step.variants or [None]:

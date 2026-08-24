@@ -265,7 +265,18 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
    `validate`'s default behavior, if added). 6 new tests in `tests/test_cli_validate.py` — first
    file in the test suite not integration-marked, since config validation never touches a
    browser (partial progress on the `pytest -m 'not integration'` coverage gap below).
-6. **Retry+backoff+politeness delay** for navigation and vision calls, plus a cost/token report.
+6. **Retry+backoff for navigation** *(shipped 2026-08-24)* — `capture.py` gained
+   `_goto_with_retry`/`_is_transient_navigation_error`, mirroring `vision.py`'s existing
+   `_with_retry`/`_is_transient` pattern (already shipped for vision calls under finding #5)
+   but async, since `page.goto()` is async and vision's SDK calls are synchronous. Retries up to
+   2x with the same 1s/2s exponential backoff, only on `playwright.async_api.TimeoutError` or a
+   `net::ERR_*` error message — a 404 or bad selector isn't retried, since retrying a permanent
+   failure just delays reporting it. Applied to both `run_flow`'s `NavigateStep` handling and
+   `capture_single_url`. 6 new unit tests (transient-detection + retry-then-succeed/give-up/
+   don't-retry, using a fake `Page` object rather than a real browser). NOT done: a
+   politeness/rate-limit delay between requests, and a cost/token usage report for vision calls
+   — both separate, lower-priority scope; split out of this item since "retry" and "politeness
+   delay" solve different problems (resilience vs. not hammering a target site/API).
 7. **Deterministic-capture helpers** *(shipped 2026-08-24)* — `CaptureStep.animations` (default
    `"disabled"`, a deliberate departure from Playwright's own `"allow"` default) and
    `CaptureStep.mask`/`mask_color` (fill selectors with a solid color before capturing).

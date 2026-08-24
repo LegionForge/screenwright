@@ -3,8 +3,16 @@ from __future__ import annotations
 import shutil
 
 import pytest
+from playwright.async_api import Error as PlaywrightError
+from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 
-from screenwright.capture import _resolve_fill_value, capture_single_url, run_flow
+from screenwright.capture import (
+    _goto_with_retry,
+    _is_transient_navigation_error,
+    _resolve_fill_value,
+    capture_single_url,
+    run_flow,
+)
 from screenwright.config import load_config
 
 pytestmark = pytest.mark.integration
@@ -23,6 +31,63 @@ def test_resolve_fill_value_raises_on_unset_env_var(monkeypatch):
     monkeypatch.delenv("SCREENWRIGHT_TEST_VAR_UNSET", raising=False)
     with pytest.raises(ValueError, match="SCREENWRIGHT_TEST_VAR_UNSET"):
         _resolve_fill_value("${SCREENWRIGHT_TEST_VAR_UNSET}")
+
+
+def test_is_transient_navigation_error_detects_timeout():
+    assert (
+        _is_transient_navigation_error(PlaywrightTimeoutError("Timeout 30000ms exceeded")) is True
+    )
+
+
+def test_is_transient_navigation_error_detects_net_error():
+    assert (
+        _is_transient_navigation_error(PlaywrightError("net::ERR_CONNECTION_RESET at http://x"))
+        is True
+    )
+
+
+def test_is_transient_navigation_error_rejects_other_errors():
+    assert _is_transient_navigation_error(PlaywrightError("Selector not found")) is False
+    assert _is_transient_navigation_error(ValueError("not a playwright error")) is False
+
+
+class _FlakyPage:
+    def __init__(self, fail_times, exc):
+        self._fail_times = fail_times
+        self._exc = exc
+        self.calls = 0
+
+    async def goto(self, url, wait_until):
+        self.calls += 1
+        if self.calls <= self._fail_times:
+            raise self._exc
+        return None
+
+
+async def _fake_sleep(_seconds):
+    return None
+
+
+async def test_goto_with_retry_succeeds_after_transient_failures(monkeypatch):
+    monkeypatch.setattr("screenwright.capture.asyncio.sleep", _fake_sleep)
+    page = _FlakyPage(2, PlaywrightTimeoutError("Timeout 30000ms exceeded"))
+    await _goto_with_retry(page, "http://example.com", "load")
+    assert page.calls == 3
+
+
+async def test_goto_with_retry_gives_up_after_max_retries(monkeypatch):
+    monkeypatch.setattr("screenwright.capture.asyncio.sleep", _fake_sleep)
+    page = _FlakyPage(99, PlaywrightTimeoutError("Timeout 30000ms exceeded"))
+    with pytest.raises(PlaywrightTimeoutError):
+        await _goto_with_retry(page, "http://example.com", "load")
+    assert page.calls == 3  # 1 initial attempt + 2 retries
+
+
+async def test_goto_with_retry_does_not_retry_non_transient_errors():
+    page = _FlakyPage(99, PlaywrightError("Selector not found"))
+    with pytest.raises(PlaywrightError):
+        await _goto_with_retry(page, "http://example.com", "load")
+    assert page.calls == 1  # no retry attempted
 
 
 _HTML = """
