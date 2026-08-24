@@ -257,6 +257,27 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       monkeypatching `Path.replace` to raise deterministically rather than depending on an
       actual disk-full or crashed-page condition.)*
 
+- [x] **#19 [medium, found 2026-08-24 by fresh review, not in the original Opus pass] Partial
+      flow failures were invisible in the generated docs themselves** — `output.py`'s
+      `_flow_index_md`/`_root_readme_md` never rendered `FlowResult.error`. Every crash-on-
+      error-path fix this session (#1, #14, #16, #18) guarantees a mid-flow failure returns a
+      `FlowResult` with `.error` set instead of raising, but nothing ever surfaced that field
+      into the docs a `screenwright run` actually produces — a partial run's `index.md` and root
+      `README.md` looked identical to a fully successful one, with the failure visible only in
+      ephemeral CLI console output that's gone the moment the terminal scrolls. For a
+      documentation tool specifically, that's a real gap: anyone opening the generated docs
+      later (or an MCP agent calling `describe_flow`, which reads `index.md`) had no way to know
+      a flow stopped early. *(fixed 2026-08-24: `_flow_index_md` prepends a
+      `⚠️ Flow stopped early: {error}` banner above the capture table when `.error` is set
+      (escaped through the existing `_escape_markdown_cell`, since `.error` can embed a selector
+      string or other config-derived text); `_root_readme_md` gained a `✅`/`⚠️ Partial` Status
+      column. 3 new tests
+      (`test_write_root_readme_flags_partial_flow_status`,
+      `test_write_flow_output_shows_error_banner_when_flow_stopped_early`,
+      `test_write_flow_output_omits_error_banner_on_success`); 1 existing test
+      (`test_write_root_readme_lists_all_flows`) updated for the new column format.
+      README's Output Format section updated.)*
+
 ## Test coverage gaps
 
 - [x] `_describe_anthropic`/`_describe_openai` mocked and tested (2026-08-24, alongside #6).

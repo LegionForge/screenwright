@@ -625,10 +625,14 @@ The whole page as PDF — see [PDF Export](#pdf-export).
 ```
 
 ### `{flow_name}/index.md`
-Markdown table listing all captures with their descriptions.
+Markdown table listing all captures with their descriptions. If the flow stopped early (a step
+failed partway through), the index still lists everything captured before the failure, with a
+`⚠️ Flow stopped early: ...` banner above the table naming what failed.
 
 ### `README.md` (output root)
-Table of all flows with links to their index files.
+Table of all flows with links to their index files, plus a Status column (`✅` or
+`⚠️ Partial` for a flow that stopped early) — visible in the generated docs themselves, not just
+in CLI console output.
 
 ---
 

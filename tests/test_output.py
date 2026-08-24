@@ -131,5 +131,44 @@ def test_write_root_readme_lists_all_flows(tmp_path):
     readme_path = write_root_readme([homepage, login], tmp_path)
 
     content = readme_path.read_text()
-    assert "| homepage | 1 | [homepage/index.md](homepage/index.md) |" in content
-    assert "| login | 2 | [login/index.md](login/index.md) |" in content
+    assert "| homepage | 1 | ✅ | [homepage/index.md](homepage/index.md) |" in content
+    assert "| login | 2 | ✅ | [login/index.md](login/index.md) |" in content
+
+
+def test_write_root_readme_flags_partial_flow_status(tmp_path):
+    ok = FlowResult(flow_name="homepage", captures=[_make_capture(tmp_path, "homepage", "a")])
+    partial = FlowResult(
+        flow_name="login",
+        captures=[_make_capture(tmp_path, "login", "a")],
+        error="Step 2 (capture) failed: Selector not found: '#missing'",
+    )
+
+    readme_path = write_root_readme([ok, partial], tmp_path)
+
+    content = readme_path.read_text()
+    assert "| homepage | 1 | ✅ | [homepage/index.md](homepage/index.md) |" in content
+    assert "| login | 1 | ⚠️ Partial | [login/index.md](login/index.md) |" in content
+
+
+def test_write_flow_output_shows_error_banner_when_flow_stopped_early(tmp_path):
+    capture = _make_capture(tmp_path, "login", "login-empty", metadata=None)
+    result = FlowResult(
+        flow_name="login",
+        captures=[capture],
+        error="Step 2 (capture) failed: Selector not found: '#missing'",
+    )
+
+    index_path = write_flow_output(result, tmp_path)
+
+    content = index_path.read_text()
+    assert "⚠️ **Flow stopped early:**" in content
+    assert "Selector not found: '#missing'" in content
+
+
+def test_write_flow_output_omits_error_banner_on_success(tmp_path):
+    capture = _make_capture(tmp_path, "login", "login-empty", metadata=None)
+    result = FlowResult(flow_name="login", captures=[capture])
+
+    index_path = write_flow_output(result, tmp_path)
+
+    assert "⚠️" not in index_path.read_text()

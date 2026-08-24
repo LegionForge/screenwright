@@ -42,9 +42,17 @@ def save_metadata(capture: CaptureResult, output_root: Path) -> Path | None:
 
 
 def _flow_index_md(flow_result: FlowResult) -> str:
-    lines = [
-        f"# {flow_result.flow_name}",
-        "",
+    lines = [f"# {flow_result.flow_name}", ""]
+    if flow_result.error is not None:
+        # A flow that stopped mid-way still writes an index for whatever it
+        # captured before the failure (see run_flow's "always return a
+        # FlowResult, never raise" contract) — without this, that partial
+        # success and the failure that caused it are only visible in
+        # ephemeral CLI console output, never in the generated docs
+        # themselves.
+        lines.append(f"> ⚠️ **Flow stopped early:** {_escape_markdown_cell(flow_result.error)}")
+        lines.append("")
+    lines += [
         "| Screenshot | Description |",
         "|------------|-------------|",
     ]
@@ -76,13 +84,15 @@ def _root_readme_md(flow_results: list[FlowResult]) -> str:
     lines = [
         "# Screenwright Output",
         "",
-        "| Flow | Screenshots | Index |",
-        "|------|-------------|-------|",
+        "| Flow | Screenshots | Status | Index |",
+        "|------|-------------|--------|-------|",
     ]
     for fr in flow_results:
         count = len(fr.captures)
+        status = "⚠️ Partial" if fr.error is not None else "✅"
         lines.append(
-            f"| {fr.flow_name} | {count} | [{fr.flow_name}/index.md]({fr.flow_name}/index.md) |"
+            f"| {fr.flow_name} | {count} | {status} | "
+            f"[{fr.flow_name}/index.md]({fr.flow_name}/index.md) |"
         )
     lines.append("")
     return "\n".join(lines)

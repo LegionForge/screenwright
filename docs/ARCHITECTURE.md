@@ -182,3 +182,11 @@ sequenceDiagram
   (chained with any earlier step/mp4 error), finally completing the "always return a
   `FlowResult`, never raise" contract for every path through `run_flow`'s finalize logic, not
   just the mp4-specific one.
+- **A partial flow's failure was invisible in the generated docs themselves.** Every fix above
+  ensures a mid-flow failure returns a `FlowResult` with `.error` set instead of raising, but
+  `output.py`'s `_flow_index_md`/`_root_readme_md` never rendered that field — a partial run's
+  `index.md` and root `README.md` looked identical to a fully successful one; the failure was
+  only visible in ephemeral CLI console output. Fixed by adding a `⚠️ Flow stopped early: ...`
+  banner (escaped through the existing `_escape_markdown_cell`, since `.error` can embed a
+  selector string or other config-derived text) above a flow's capture table when `.error` is
+  set, and a `✅`/`⚠️ Partial` Status column to the root README's flow table.
