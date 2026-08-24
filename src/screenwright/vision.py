@@ -122,8 +122,25 @@ def _warn_if_truncated(provider: str, truncated: bool) -> None:
         )
 
 
+def _import_provider_sdk(module_name: str, extra_name: str):
+    """Import a vision provider's SDK, or raise a clear install hint if it's missing.
+
+    Each provider's SDK is an optional extra (see pyproject.toml), not a
+    hard dependency, so a plain `pip install screenwright` doesn't pull in
+    all three. A bare ModuleNotFoundError here would be confusing — this
+    turns it into an actionable message.
+    """
+    try:
+        return __import__(module_name)
+    except ImportError as exc:
+        raise ImportError(
+            f"The {module_name!r} package is required for provider={extra_name!r}. "
+            f"Install it with: pip install 'screenwright[{extra_name}]'"
+        ) from exc
+
+
 def _describe_anthropic(image_path: Path, cfg: VisionConfig) -> ScreenshotMetadata:
-    import anthropic
+    anthropic = _import_provider_sdk("anthropic", "anthropic")
 
     client = anthropic.Anthropic()
     prompt = _build_prompt(cfg)
@@ -154,7 +171,7 @@ def _describe_anthropic(image_path: Path, cfg: VisionConfig) -> ScreenshotMetada
 
 
 def _describe_ollama(image_path: Path, cfg: VisionConfig) -> ScreenshotMetadata:
-    import ollama
+    ollama = _import_provider_sdk("ollama", "ollama")
 
     prompt = _build_prompt(cfg)
     with open(image_path, "rb") as f:
@@ -174,7 +191,7 @@ def _describe_ollama(image_path: Path, cfg: VisionConfig) -> ScreenshotMetadata:
 
 
 def _describe_openai(image_path: Path, cfg: VisionConfig) -> ScreenshotMetadata:
-    import openai
+    openai = _import_provider_sdk("openai", "openai")
 
     client = openai.OpenAI()
     prompt = _build_prompt(cfg)

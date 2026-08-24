@@ -103,11 +103,21 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       2026-08-24, this session — a full migration to the 2.0 API is separate future work: the
       new module layout is `mcp.server.mcpserver` (and others) not `mcp.server.fastmcp`; read
       its actual API before migrating, don't assume it mirrors FastMCP's shape.)*
-- [ ] **#8 [medium, supply-chain] All 3 vision SDKs are hard runtime deps** —
+- [x] **#8 [medium, supply-chain] All 3 vision SDKs are hard runtime deps** —
       `pyproject.toml:18-20`. anthropic/openai/ollama installed unconditionally though lazily
       imported; open-ended `>=` bounds; no lockfile/hash pinning in CI. Fix: move to extras
       (`screenwright[anthropic]` etc.), clear ImportError message; pin CI with a lockfile; add
       upper bounds on fast-moving deps (playwright, mcp).
+      *(partially fixed 2026-08-24: anthropic/openai/ollama moved from `dependencies` to
+      per-provider extras (`anthropic`, `openai`, `ollama`, plus a `vision` extra bundling all
+      three via self-referential extras); `dev` now depends on `screenwright[anthropic,openai]`
+      so CI's `pip install ".[dev]"` is unaffected. Each `_describe_*` function now imports its
+      SDK through `_import_provider_sdk()`, which raises a clear "pip install
+      'screenwright[x]'" `ImportError` instead of a bare `ModuleNotFoundError` if the extra
+      isn't installed. README + wiki (Getting-Started, Vision-Providers) updated. NOT done:
+      lockfile/hash-pinning in CI, or upper bounds on playwright — left as-is since neither is
+      what actually broke CI this session (that was unpinned `mcp`, already fixed separately);
+      revisit if it becomes a real pain point rather than pre-emptively.)*
 - [x] **#9 [low-medium] `_resolve_output` string-compares against the default as a sentinel** —
       `mcp_server.py:37`. A user who deliberately sets `output_dir = "docs/screenshots"` (the
       default value) gets silently redirected to `/tmp/screenwright-output`. Fix: use

@@ -10,6 +10,7 @@ from screenwright.vision import (
     _describe_anthropic,
     _describe_openai,
     _first_text_block,
+    _import_provider_sdk,
     _is_transient,
     _parse_response,
     _with_retry,
@@ -272,3 +273,14 @@ def test_describe_openai_returns_normal_description(monkeypatch, tmp_path):
 
     result = _describe_openai(image, VisionConfig(structured_metadata=False))
     assert result.description == "A homepage hero section"
+
+
+def test_import_provider_sdk_returns_module_when_installed():
+    # anthropic is a dev-extra dependency, so it's actually installed here.
+    module = _import_provider_sdk("anthropic", "anthropic")
+    assert module.__name__ == "anthropic"
+
+
+def test_import_provider_sdk_raises_actionable_error_when_missing():
+    with pytest.raises(ImportError, match=r"pip install 'screenwright\[some-extra\]'"):
+        _import_provider_sdk("definitely_not_a_real_package_xyz", "some-extra")

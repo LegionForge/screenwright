@@ -37,6 +37,21 @@ pip install screenwright
 playwright install chromium
 ```
 
+Base `pip install screenwright` gets you pure capture (screenshots/video, no vision
+descriptions) — each vision provider's SDK is a separate extra so you only pull in what you
+use:
+
+```bash
+pip install "screenwright[anthropic]"   # Claude Haiku (cloud)
+pip install "screenwright[openai]"      # OpenAI, e.g. gpt-4o-mini (cloud)
+pip install "screenwright[ollama]"      # local models via Ollama, no cloud dependency
+pip install "screenwright[vision]"      # all three, if you want to switch providers freely
+```
+
+Calling `describe()` (or running a flow with `vision_describe = true`) for a provider whose
+extra isn't installed raises a clear `ImportError` telling you which extra to install — it
+won't fail confusingly deep inside the SDK call.
+
 For the Claude Haiku vision model:
 ```bash
 export ANTHROPIC_API_KEY=your-api-key
