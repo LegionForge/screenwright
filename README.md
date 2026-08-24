@@ -445,7 +445,7 @@ vision_describe = false
 |----------|--------|
 | **a) TOML/URL-list driven capture** — CLI tool with flow definitions | ✅ Implemented |
 | **b) MCP server** — LLM-controlled capture with `mcp` SDK | ✅ Implemented |
-| **c) FastAPI auto-discovery** — crawl `/openapi.json`, auto-generate flows | 🏗 Scaffolded (see `discovery.py`) |
+| **c) FastAPI auto-discovery** — crawl `/openapi.json`, auto-generate flows | 📋 Designed, not implemented (see [DECISIONS.md](DECISIONS.md#7-use-case-c-fastapi-auto-discovery-scaffolded-not-implemented)) |
 | **d) Guided tour UI** — interactive walkthrough from capture output | ❌ Out of scope (deferred) |
 
 ---

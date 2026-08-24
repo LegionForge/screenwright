@@ -29,7 +29,7 @@ def _escape_markdown_cell(text: str) -> str:
     return text
 
 
-def save_metadata(capture: CaptureResult, output_root: Path) -> Path:
+def save_metadata(capture: CaptureResult, output_root: Path) -> Path | None:
     """Write a .json sidecar next to the PNG."""
     if capture.metadata is None:
         return None

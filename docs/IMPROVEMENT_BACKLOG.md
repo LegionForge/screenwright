@@ -131,15 +131,21 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
 - [ ] **#10 [low-medium] No timeouts/viewport control anywhere** — `capture.py:88-94,119-159`.
       No `set_default_timeout`, no per-step override, `wait_until: str` untyped so a typo becomes
       a Playwright error instead of a config validation error.
-- [ ] **#11 [low] `save_metadata` annotated `-> Path` but returns `None`** — `output.py:9-18`.
-      mypy isn't in CI so unnoticed; fix annotation to `Path | None`.
+- [x] **#11 [low] `save_metadata` annotated `-> Path` but returns `None`** — `output.py:9-18`.
+      mypy isn't in CI so unnoticed; fix annotation to `Path | None`. *(fixed 2026-08-24 —
+      one-line annotation fix.)*
 - [x] **#12 [low] `asyncio.get_event_loop()` inside a coroutine** — `mcp_server.py:178`.
       Deprecated; use `asyncio.to_thread(describe, path, vision_cfg)`. *(fixed 2026-08-24 —
       one-line swap. Also added the first tests for `describe_screenshot`, previously entirely
       untested: missing-file error, structured-JSON return, plain-description return — a start
       on the "MCP server has no tests at all" gap below.)*
-- [ ] **#13 [low] `discovery.py` is a docstring with no code** — ships in the wheel, importable,
-      empty. Delete and move design notes to DECISIONS.md, or implement it.
+- [x] **#13 [low] `discovery.py` is a docstring with no code** — ships in the wheel, importable,
+      empty. Delete and move design notes to DECISIONS.md, or implement it. *(fixed 2026-08-24:
+      deleted. Its design content (route-mapping problem, possible approaches, suggested CLI
+      interface) merged into DECISIONS.md §7, plus two challenges from its TODO that weren't
+      already in DECISIONS.md (auth/session injection, which routes to skip). README's roadmap
+      row and ARCHITECTURE.md's module table updated to point at DECISIONS.md instead of the
+      now-removed file; wiki's Architecture page synced.)*
 
 ## Test coverage gaps
 

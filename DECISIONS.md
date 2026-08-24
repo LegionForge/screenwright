@@ -98,4 +98,19 @@ Possible future approaches:
 - Require FastAPI to annotate routes with `x-ui-path` extensions
 - Detect if the route returns HTML (Content-Type `text/html`) vs JSON
 
-Scaffolded in `discovery.py` with a detailed TODO. Will revisit after the core pipeline has real-world usage data to inform what users actually need.
+Two more open design challenges beyond the route-mapping problem above:
+- **Auth.** Most FastAPI apps require authentication before any route is reachable — discovery
+  would need credentials or session injection before it could navigate anywhere, not just at
+  capture time.
+- **Route filtering.** Not every discovered route is worth a screenshot — non-GET endpoints,
+  health/metrics paths, and raw-JSON endpoints with no corresponding HTML view all need to be
+  skipped, and there's no proposed rule for identifying them yet.
+
+Suggested (not implemented) interface: `screenwright discover http://localhost:8000 --output
+flows/discovered.toml`, producing a TOML file that feeds directly into `screenwright run`.
+
+Previously scaffolded as an empty `discovery.py` module carrying only this design doc as a
+docstring — removed 2026-08-24 (this doc is the single source of truth for the design now; the
+module shipped zero code and existed only to hold a comment, which is a maintenance smell in a
+published package). Will revisit implementation after the core pipeline has real-world usage
+data to inform what users actually need.
