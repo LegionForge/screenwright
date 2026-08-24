@@ -34,6 +34,11 @@ packages = ["src/screenwright"]
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+# Markdown formatting stabilized (no longer preview-gated) in ruff 0.16 —
+# exclude docs so illustrative code fences in README/docs aren't reformatted
+# as if they were real source, and so a ruff bump can't silently break CI
+# the way it did when 0.16 started formatting *.md by default.
+extend-exclude = ["*.md"]
 
 [tool.ruff.lint]
 select = ["E", "W", "F", "I"]
