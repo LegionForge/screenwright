@@ -68,6 +68,39 @@ def test_validate_reports_schema_violations_clearly(tmp_path):
     assert "path-traversal" in result.output
 
 
+def test_validate_reports_duplicate_flow_names_clearly(tmp_path):
+    # ScreenwrightConfig's duplicate-flow-name check is a model-level
+    # validator (no single field to point at), so its Pydantic error has
+    # an empty `loc` — this guards that _format_validation_errors renders
+    # that case as "(root): ..." rather than a raw traceback or a blank
+    # line.
+    toml_path = tmp_path / "config.toml"
+    toml_path.write_text(
+        """
+        [[flows]]
+        name = "homepage"
+
+          [[flows.steps]]
+          action = "navigate"
+          url = "/"
+
+        [[flows]]
+        name = "homepage"
+
+          [[flows.steps]]
+          action = "navigate"
+          url = "/about"
+        """
+    )
+
+    result = runner.invoke(app, ["validate", str(toml_path)])
+
+    assert result.exit_code == 1
+    assert "Config validation failed" in result.output
+    assert "(root)" in result.output
+    assert "Duplicate flow name" in result.output
+
+
 def test_validate_reports_missing_config_file(tmp_path):
     missing = tmp_path / "does-not-exist.toml"
 

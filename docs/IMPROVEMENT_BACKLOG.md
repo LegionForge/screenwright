@@ -395,6 +395,19 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       "docs went stale relative to real behavior" class of gap as #23/#25, this time the wiki
       itself rather than a docs/ file.)*
 
+- [x] **#27 [low, found 2026-08-24 by fresh review] No test verified `validate` renders the
+      duplicate-flow-name error cleanly through the actual CLI** — findings #20/#21 added
+      model-level validators (no single field to point at, so their Pydantic errors have an
+      empty `loc`), but only tested the validators directly via `ScreenwrightConfig`/`load_config`,
+      never through `screenwright validate` itself — the actual path `_format_validation_errors`'
+      `loc = ... or "(root)"` fallback exists for. Manually verified the real CLI output first
+      (`(root): Value error, Duplicate flow name(s): homepage. ...`, clean, not a traceback)
+      before writing the regression test, per this session's "verify against the real thing
+      before writing code/tests" habit. *(fixed 2026-08-24: added
+      `test_validate_reports_duplicate_flow_names_clearly` to `tests/test_cli_validate.py`,
+      guarding the "(root)" fallback specifically rather than just re-testing what #20 already
+      covers. No code changed.)*
+
 ## Test coverage gaps
 
 - [x] `_describe_anthropic`/`_describe_openai` mocked and tested (2026-08-24, alongside #6).
