@@ -232,9 +232,17 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
    file in the test suite not integration-marked, since config validation never touches a
    browser (partial progress on the `pytest -m 'not integration'` coverage gap below).
 6. **Retry+backoff+politeness delay** for navigation and vision calls, plus a cost/token report.
-7. **Deterministic-capture helpers** — mask selectors (clock/avatar/email), `animations=disabled`
-   — pairs with a **screenshot-diff `--check` mode** that fails CI on UI drift. Flagged as the
-   most differentiated addition for a docs pipeline specifically.
+7. **Deterministic-capture helpers** *(shipped 2026-08-24)* — `CaptureStep.animations` (default
+   `"disabled"`, a deliberate departure from Playwright's own `"allow"` default) and
+   `CaptureStep.mask`/`mask_color` (fill selectors with a solid color before capturing).
+   Verified directly against the installed Playwright before writing code: masking a
+   non-matching selector is a silent no-op (unlike `selector`, which raises), so an optional
+   masking target doesn't have to exist on every page a flow runs against. 8 new tests.
+   README/API_REFERENCE/ARCHITECTURE/wiki updated. NOT done: the **screenshot-diff `--check`
+   mode** this was originally paired with — that's a separate, larger feature (needs a baseline
+   store, a pixel-diff algorithm, a new CLI flag/exit-code contract) and remains unstarted.
+   Flagged as the most differentiated addition for a docs pipeline specifically — good next
+   candidate.
 8. **Parallel flow execution** — `cli.py` runs flows serially with a fresh event loop each; one
    browser + bounded `asyncio.gather` over contexts would cut a multi-flow build several-fold.
 9. **PDF export** *(shipped 2026-08-24)* / HAR capture (not done). `CaptureStep.pdf` calls

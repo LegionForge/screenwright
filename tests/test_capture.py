@@ -904,6 +904,111 @@ def test_run_flow_capture_step_without_variants_behaves_exactly_as_before(tmp_pa
     assert result.captures[0].path == output_root / "no-variants" / "shot.png"
 
 
+def test_run_flow_masks_selector_without_error(tmp_path):
+    url = _write_page(tmp_path)
+    toml_path = tmp_path / "config.toml"
+    toml_path.write_text(
+        f"""
+        [screenwright]
+        base_url = ""
+
+        [[flows]]
+        name = "masked"
+
+          [[flows.steps]]
+          action = "navigate"
+          url = "{url}"
+
+          [[flows.steps]]
+          action = "capture"
+          name = "shot"
+          mask = ["#remember-me"]
+          mask_color = "#000000"
+        """
+    )
+    cfg = load_config(toml_path)
+    flow = cfg.get_flow("masked")
+    output_root = tmp_path / "output"
+
+    import asyncio
+
+    result = asyncio.run(run_flow(flow, cfg, output_root))
+
+    assert result.error is None
+    assert result.captures[0].path.exists()
+
+
+def test_run_flow_mask_of_nonexistent_selector_is_a_silent_no_op(tmp_path):
+    # Unlike the `selector` param (which raises "Selector not found" if
+    # missing), Playwright's mask locators silently match nothing rather
+    # than erroring — verified directly against the installed Playwright
+    # before writing this. A flow shouldn't fail just because an optional
+    # masking target isn't present on every page it's used on.
+    url = _write_page(tmp_path)
+    toml_path = tmp_path / "config.toml"
+    toml_path.write_text(
+        f"""
+        [screenwright]
+        base_url = ""
+
+        [[flows]]
+        name = "mask-missing"
+
+          [[flows.steps]]
+          action = "navigate"
+          url = "{url}"
+
+          [[flows.steps]]
+          action = "capture"
+          name = "shot"
+          mask = ["#does-not-exist-anywhere"]
+        """
+    )
+    cfg = load_config(toml_path)
+    flow = cfg.get_flow("mask-missing")
+    output_root = tmp_path / "output"
+
+    import asyncio
+
+    result = asyncio.run(run_flow(flow, cfg, output_root))
+
+    assert result.error is None
+    assert result.captures[0].path.exists()
+
+
+def test_run_flow_animations_allow_does_not_error(tmp_path):
+    url = _write_page(tmp_path)
+    toml_path = tmp_path / "config.toml"
+    toml_path.write_text(
+        f"""
+        [screenwright]
+        base_url = ""
+
+        [[flows]]
+        name = "allow-animations"
+
+          [[flows.steps]]
+          action = "navigate"
+          url = "{url}"
+
+          [[flows.steps]]
+          action = "capture"
+          name = "shot"
+          animations = "allow"
+        """
+    )
+    cfg = load_config(toml_path)
+    flow = cfg.get_flow("allow-animations")
+    output_root = tmp_path / "output"
+
+    import asyncio
+
+    result = asyncio.run(run_flow(flow, cfg, output_root))
+
+    assert result.error is None
+    assert result.captures[0].path.exists()
+
+
 def test_run_flow_check_and_select_steps(tmp_path):
     url = _write_page(tmp_path)
     toml_path = tmp_path / "config.toml"

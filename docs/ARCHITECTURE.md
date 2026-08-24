@@ -106,3 +106,11 @@ sequenceDiagram
   video-recording and error-handling code that setup path shares. One real gotcha this
   uncovered: `page.emulate_media(color_scheme=None)` is a no-op, not a reset — restoring the
   flow's default after a `color_scheme` variant requires an explicit `"light"`, not `None`.
+- **Determinism is the default, not opt-in.** `CaptureStep.animations` defaults to `"disabled"`
+  (Playwright's own screenshot default is `"allow"`) — a deliberate departure, since a
+  documentation tool capturing a random mid-animation frame is rarely intended and is the
+  single biggest source of unnecessary pixel diffs between otherwise-identical runs.
+  `CaptureStep.mask` fills selected elements with a solid color before capturing (live clocks,
+  avatars, etc.); unlike `selector`, a `mask` entry matching nothing is a silent no-op, verified
+  directly against the installed Playwright before relying on it — an optional masking target
+  not being present everywhere a flow runs isn't a flow failure.

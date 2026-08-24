@@ -45,6 +45,9 @@ One entry in `CaptureStep.variants`: `name: str`, `viewport_width: int | None`,
 `viewport_height: int | None`, `color_scheme: Literal["light", "dark", "no-preference"] | None`.
 Unset fields fall back to the flow's own defaults. See [Capture Variants](../README.md#capture-variants).
 
+`CaptureStep` also carries `animations: Literal["disabled", "allow"] = "disabled"`,
+`mask: list[str] = []`, `mask_color: str | None`. See [Deterministic Captures](../README.md#deterministic-captures).
+
 ### `VisionConfig`
 | Field | Type | Default |
 |---|---|---|

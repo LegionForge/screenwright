@@ -92,15 +92,34 @@ async def _convert_to_mp4(webm_path: Path) -> Path:
     return mp4_path
 
 
-async def _capture_page_or_element(page: Page, output_path: Path, selector: str | None) -> None:
+async def _capture_page_or_element(
+    page: Page,
+    output_path: Path,
+    selector: str | None,
+    animations: str = "disabled",
+    mask: list[str] | None = None,
+    mask_color: str | None = None,
+) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
+    mask_locators = [page.locator(s) for s in mask] if mask else None
     if selector:
         element = await page.query_selector(selector)
         if element is None:
             raise ValueError(f"Selector not found: {selector!r}")
-        await element.screenshot(path=str(output_path))
+        await element.screenshot(
+            path=str(output_path),
+            animations=animations,
+            mask=mask_locators,
+            mask_color=mask_color,
+        )
     else:
-        await page.screenshot(path=str(output_path), full_page=True)
+        await page.screenshot(
+            path=str(output_path),
+            full_page=True,
+            animations=animations,
+            mask=mask_locators,
+            mask_color=mask_color,
+        )
 
 
 async def capture_single_url(
@@ -111,6 +130,7 @@ async def capture_single_url(
     timeout_ms: int = 30000,
     viewport_width: int = 1280,
     viewport_height: int = 720,
+    animations: str = "disabled",
 ) -> Path:
     async with async_playwright() as p:
         browser: Browser = await p.chromium.launch()
@@ -119,7 +139,7 @@ async def capture_single_url(
         )
         page.set_default_timeout(timeout_ms)
         await page.goto(url, wait_until=wait_until)
-        await _capture_page_or_element(page, output_path, selector)
+        await _capture_page_or_element(page, output_path, selector, animations=animations)
         await browser.close()
     return output_path
 
@@ -191,7 +211,14 @@ async def run_flow(
                                 await page.emulate_media(color_scheme=variant.color_scheme)
 
                         out = flow_dir / f"{step.name}{suffix}.png"
-                        await _capture_page_or_element(page, out, step.selector)
+                        await _capture_page_or_element(
+                            page,
+                            out,
+                            step.selector,
+                            animations=step.animations,
+                            mask=step.mask,
+                            mask_color=step.mask_color,
+                        )
                         accessibility_path = None
                         if step.accessibility_snapshot:
                             accessibility_path = flow_dir / f"{step.name}{suffix}.aria.yaml"

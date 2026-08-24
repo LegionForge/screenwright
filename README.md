@@ -293,7 +293,7 @@ Set on a flow itself, not on individual steps:
 | Action | Required fields | Optional fields | Description |
 |--------|----------------|-----------------|-------------|
 | `navigate` | `url` | `wait_until` (`load` default, or `domcontentloaded`/`networkidle`/`commit`) | Navigate to URL (relative to `base_url` if starts with `/`). Use `domcontentloaded` for apps with persistent websocket/SSE connections (live dashboards, log viewers) — `networkidle` will time out on them since the connection never goes idle. |
-| `capture` | `name` | `selector`, `accessibility_snapshot` (bool, default `false`), `pdf` (bool, default `false`), `variants` (list, default `[]`) | Screenshot the page or a CSS-selected element. `accessibility_snapshot` also writes the *whole page's* accessibility tree to `{name}.aria.yaml` (always whole-page, not scoped to `selector`) — a semantic tree an agent can reason about directly, cheaper and more reliable than a vision-model guess at a PNG. `pdf` also saves the *whole page* as `{name}.pdf` (also always whole-page, Chromium-only). `variants` captures this step once per variant (e.g. mobile + desktop viewport, light + dark) instead of once — see [Capture Variants](#capture-variants) below. |
+| `capture` | `name` | `selector`, `accessibility_snapshot` (bool), `pdf` (bool), `variants` (list), `animations` (`"disabled"`/`"allow"`), `mask` (list of selectors), `mask_color` (string) | Screenshot the page or a CSS-selected element. `accessibility_snapshot` also writes the *whole page's* accessibility tree to `{name}.aria.yaml` (always whole-page, not scoped to `selector`). `pdf` also saves the *whole page* as `{name}.pdf` (also whole-page, Chromium-only). `variants` captures this step once per variant instead of once. `animations`/`mask`/`mask_color` control determinism — see [Capture Variants](#capture-variants) and [Deterministic Captures](#deterministic-captures) below. |
 | `fill` | `selector`, `value` | `secret` (bool, default `false`) | Fill an input field. `value` may be `${ENV_VAR}` to pull from the environment instead of a literal — required (not optional) when `secret = true`, so a credential can't accidentally end up committed as plaintext next to the flow that uses it. |
 | `click` | `selector` | — | Click an element |
 | `wait` | `ms` | — | Wait N milliseconds |
@@ -505,6 +505,35 @@ running under a variant's settings.
 (`record_width`/`record_height`) and can't change mid-recording — the same constraint documented
 under [Video Recording](#video-recording). A variant's viewport still applies to what's rendered
 within that fixed frame; it doesn't resize the video itself.
+
+---
+
+## Deterministic Captures
+
+A screenshot of the same page can differ between runs for reasons that have nothing to do with
+what you're actually documenting — a CSS animation mid-transition, a blinking cursor, a live
+clock, a random avatar. Two `capture` step options exist specifically to cut that noise:
+
+```toml
+[[flows.steps]]
+action = "capture"
+name   = "dashboard"
+mask   = ["#live-clock", ".user-avatar"]
+```
+
+**`animations`** (default `"disabled"`) freezes CSS animations/transitions and infinite
+animations for the screenshot — Playwright's own `animations` option, but Screenwright defaults
+it to `"disabled"` rather than Playwright's own default of `"allow"`, because a documentation
+screenshot capturing a random mid-animation frame is rarely what you actually want, and it's the
+single biggest source of unnecessary pixel diffs between otherwise-identical runs. Set
+`animations = "allow"` for the rare case where the animation itself is what's being documented.
+
+**`mask`** (default `[]`) fills the matched elements with a solid color (`mask_color`, default
+Playwright's own bright pink — deliberately unmissable) before capturing — for content that's
+real but not the point: a live clock, a per-session avatar, an email address. Unlike `selector`
+(which raises an error if nothing matches), a `mask` selector matching nothing is a silent
+no-op — an optional masking target not being present on every page a flow runs against isn't a
+flow failure.
 
 ---
 

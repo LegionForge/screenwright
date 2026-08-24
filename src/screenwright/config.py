@@ -91,6 +91,28 @@ class CaptureStep(BaseModel):
     same flow aren't left running under a variant's settings. An empty list
     (the default) captures once, exactly as before this field existed.
     """
+    animations: Literal["disabled", "allow"] = "disabled"
+    """Whether CSS animations/transitions/infinite-animations run during the
+    screenshot (Playwright's own `animations` screenshot option). Defaults
+    to "disabled" — a deliberate departure from Playwright's own default of
+    "allow" — because a documentation screenshot tool should default to
+    deterministic, reproducible output; a mid-animation frame is rarely
+    what you actually want captured, and it's the single biggest source of
+    unnecessary diff-noise on re-runs. Set to "allow" for the rare case
+    where the animation itself is what's being documented.
+    """
+    mask: list[str] = Field(default_factory=list)
+    """CSS selectors to mask (filled with a solid color) before capturing —
+    e.g. a live clock, an avatar, an email address — so a screenshot of the
+    same page produces the same pixels on every run instead of differing
+    only in dynamic content that isn't the point of the documentation.
+    """
+    mask_color: str | None = None
+    """Override color for masked elements. Playwright's own default is
+    pink (`#FF00FF`), chosen specifically to be unmissable — don't switch
+    to something that could pass as a real UI color unless you have a
+    reason to.
+    """
 
     _validate_name = field_validator("name")(validate_safe_name)
 

@@ -278,3 +278,23 @@ def test_capture_step_accepts_variants():
 def test_variant_rejects_path_traversal_name():
     with pytest.raises(ValidationError):
         Variant(name="../escape")
+
+
+def test_capture_step_deterministic_defaults():
+    step = CaptureStep(action="capture", name="shot")
+    assert step.animations == "disabled"
+    assert step.mask == []
+    assert step.mask_color is None
+
+
+def test_capture_step_accepts_animations_allow():
+    step = CaptureStep(action="capture", name="shot", animations="allow")
+    assert step.animations == "allow"
+
+
+def test_capture_step_accepts_mask_selectors_and_color():
+    step = CaptureStep(
+        action="capture", name="shot", mask=["#clock", ".avatar"], mask_color="#000000"
+    )
+    assert step.mask == ["#clock", ".avatar"]
+    assert step.mask_color == "#000000"
