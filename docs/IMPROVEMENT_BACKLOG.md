@@ -196,8 +196,16 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
    tests (valid/missing/malformed storage_state). README/API_REFERENCE/ARCHITECTURE/wiki updated.
 3. **Viewport/theme variants** — one flow → matrix of captures (`{width=390, name="mobile"}`,
    `{color_scheme="dark"}`, etc.) instead of duplicating the whole flow per variant.
-4. **Accessibility snapshot export** (`page.accessibility.snapshot()`) — higher-value output for
-   an *agent* consumer than a vision-model guess at a PNG; makes `accessibility_notes` real.
+4. **Accessibility snapshot export** *(shipped 2026-08-24)* — `page.accessibility.snapshot()`
+   was already removed from the installed Playwright version (1.59) by the time this was
+   implemented; used the current API, `page.aria_snapshot()` / `Locator.aria_snapshot()`,
+   instead. New `CaptureStep.accessibility_snapshot` (bool) writes `{name}.aria.yaml` alongside
+   the PNG, always whole-page — `aria_snapshot()` isn't available on the `ElementHandle` this
+   step's selector-scoped screenshot path uses, only on `Page`/`Locator`. Linked from the flow's
+   `index.md` next to the image ref. 5 new tests. README/API_REFERENCE/ARCHITECTURE/wiki
+   updated. This did NOT make `accessibility_notes` in `ScreenshotMetadata` "real" as originally
+   framed — that field is still a separate vision-model guess; wiring the aria snapshot into the
+   vision prompt as grounding context is a distinct, unstarted follow-up.
 5. **`screenwright validate config.toml`** *(partially shipped 2026-08-24)* — implemented the
    schema-validation half: `validate` catches TOML syntax errors and Pydantic schema violations
    in well under a second, with clean "field.path: message" output (no raw traceback), shared

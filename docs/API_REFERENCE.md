@@ -67,7 +67,8 @@ One-shot capture with no flow/config needed. What `capture_url`/`capture_element
 ### `CaptureResult`
 `flow_name: str`, `capture_name: str`, `path: Path`, `metadata: ScreenshotMetadata | None` (set
 by the caller after `describe()`, not by `run_flow` itself — see the CLI's `run` command for the
-ordering: capture first, describe second).
+ordering: capture first, describe second), `accessibility_path: Path | None` (set by `run_flow`
+itself when the step's `accessibility_snapshot = true`).
 
 ### `FfmpegNotFoundError(RuntimeError)`
 Raised by the internal mp4-conversion step when `record_mp4 = true` and `ffmpeg` isn't on

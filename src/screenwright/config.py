@@ -47,6 +47,15 @@ class CaptureStep(BaseModel):
     action: Literal["capture"]
     name: str
     selector: str | None = None
+    accessibility_snapshot: bool = False
+    """When true, also write the page's accessibility tree (Playwright's
+    `aria_snapshot()`) to `{name}.aria.yaml` alongside the PNG. This is
+    always for the whole page, not scoped to `selector` — Playwright's
+    aria_snapshot is a Locator/Page method, not available on the
+    ElementHandle this step uses for element-scoped screenshots. Useful for
+    an agent consumer: the semantic tree is cheaper and more reliable to
+    reason about than a vision model's guess at a PNG.
+    """
 
     _validate_name = field_validator("name")(validate_safe_name)
 

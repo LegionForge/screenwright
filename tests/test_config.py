@@ -236,3 +236,12 @@ def test_flow_rejects_path_traversal_names(bad_name):
 
 def test_capture_step_accepts_safe_names():
     assert CaptureStep(action="capture", name="homepage-full_v2.1").name == "homepage-full_v2.1"
+
+
+def test_capture_step_accessibility_snapshot_defaults_to_false():
+    assert CaptureStep(action="capture", name="shot").accessibility_snapshot is False
+
+
+def test_capture_step_accepts_accessibility_snapshot():
+    step = CaptureStep(action="capture", name="shot", accessibility_snapshot=True)
+    assert step.accessibility_snapshot is True

@@ -49,6 +49,7 @@ class CaptureResult:
     capture_name: str
     path: Path
     metadata: Optional[object] = None  # ScreenshotMetadata, set after capture by caller
+    accessibility_path: Optional[Path] = None
 
 
 @dataclass
@@ -170,11 +171,16 @@ async def run_flow(
                 elif isinstance(step, CaptureStep):
                     out = flow_dir / f"{step.name}.png"
                     await _capture_page_or_element(page, out, step.selector)
+                    accessibility_path = None
+                    if step.accessibility_snapshot:
+                        accessibility_path = flow_dir / f"{step.name}.aria.yaml"
+                        accessibility_path.write_text(await page.aria_snapshot(), encoding="utf-8")
                     result.captures.append(
                         CaptureResult(
                             flow_name=flow.name,
                             capture_name=step.name,
                             path=out,
+                            accessibility_path=accessibility_path,
                         )
                     )
 

@@ -586,6 +586,77 @@ def test_run_flow_with_malformed_storage_state_reports_clean_error(tmp_path):
     assert result.captures == []
 
 
+def test_run_flow_writes_accessibility_snapshot_when_requested(tmp_path):
+    url = _write_page(tmp_path)
+    toml_path = tmp_path / "config.toml"
+    toml_path.write_text(
+        f"""
+        [screenwright]
+        base_url = ""
+
+        [[flows]]
+        name = "a11y"
+
+          [[flows.steps]]
+          action = "navigate"
+          url = "{url}"
+
+          [[flows.steps]]
+          action = "capture"
+          name = "shot"
+          accessibility_snapshot = true
+        """
+    )
+    cfg = load_config(toml_path)
+    flow = cfg.get_flow("a11y")
+    output_root = tmp_path / "output"
+
+    import asyncio
+
+    result = asyncio.run(run_flow(flow, cfg, output_root))
+
+    assert result.error is None
+    capture = result.captures[0]
+    assert capture.accessibility_path is not None
+    assert capture.accessibility_path == output_root / "a11y" / "shot.aria.yaml"
+    content = capture.accessibility_path.read_text()
+    # The test page (see _HTML above) has an <h1>Hello Screenwright</h1>.
+    assert "heading" in content
+    assert "Hello Screenwright" in content
+
+
+def test_run_flow_omits_accessibility_snapshot_by_default(tmp_path):
+    url = _write_page(tmp_path)
+    toml_path = tmp_path / "config.toml"
+    toml_path.write_text(
+        f"""
+        [screenwright]
+        base_url = ""
+
+        [[flows]]
+        name = "no-a11y"
+
+          [[flows.steps]]
+          action = "navigate"
+          url = "{url}"
+
+          [[flows.steps]]
+          action = "capture"
+          name = "shot"
+        """
+    )
+    cfg = load_config(toml_path)
+    flow = cfg.get_flow("no-a11y")
+    output_root = tmp_path / "output"
+
+    import asyncio
+
+    result = asyncio.run(run_flow(flow, cfg, output_root))
+
+    assert result.captures[0].accessibility_path is None
+    assert not (output_root / "no-a11y" / "shot.aria.yaml").exists()
+
+
 def test_run_flow_check_and_select_steps(tmp_path):
     url = _write_page(tmp_path)
     toml_path = tmp_path / "config.toml"

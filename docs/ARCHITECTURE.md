@@ -88,3 +88,9 @@ sequenceDiagram
   cookie/localStorage export before any step runs — the standard, robust way to capture an
   already-authenticated session for an internal app, instead of re-running a fragile
   fill/click login sequence (2FA, CAPTCHAs, rate limits) on every capture.
+- **Accessibility snapshots are a first-class capture output, not a vision-model afterthought.**
+  `CaptureStep.accessibility_snapshot` writes Playwright's `aria_snapshot()` — the exact
+  semantic tree assistive technology sees — to `{name}.aria.yaml`, free and deterministic,
+  versus a vision model's paid, approximate guess at the same PNG. Always whole-page: Playwright
+  exposes `aria_snapshot()` on `Page`/`Locator`, not on the `ElementHandle` this step's
+  selector-scoped screenshot path uses.

@@ -54,6 +54,8 @@ def _flow_index_md(flow_result: FlowResult) -> str:
         # never needs URL-encoding here — unlike `desc` below, which is
         # unconstrained model output and must be escaped.
         img_ref = f"![]({capture.capture_name}.png)"
+        if capture.accessibility_path is not None:
+            img_ref += f" ([a11y]({capture.accessibility_path.name}))"
         desc = _escape_markdown_cell(capture.metadata.description) if capture.metadata else ""
         lines.append(f"| {img_ref} | {desc} |")
     lines.append("")

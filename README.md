@@ -293,7 +293,7 @@ Set on a flow itself, not on individual steps:
 | Action | Required fields | Optional fields | Description |
 |--------|----------------|-----------------|-------------|
 | `navigate` | `url` | `wait_until` (`load` default, or `domcontentloaded`/`networkidle`/`commit`) | Navigate to URL (relative to `base_url` if starts with `/`). Use `domcontentloaded` for apps with persistent websocket/SSE connections (live dashboards, log viewers) — `networkidle` will time out on them since the connection never goes idle. |
-| `capture` | `name` | `selector` | Screenshot the page or a CSS-selected element |
+| `capture` | `name` | `selector`, `accessibility_snapshot` (bool, default `false`) | Screenshot the page or a CSS-selected element. `accessibility_snapshot` also writes the *whole page's* accessibility tree to `{name}.aria.yaml` (always whole-page, not scoped to `selector`) — a semantic tree an agent can reason about directly, cheaper and more reliable than a vision-model guess at a PNG. |
 | `fill` | `selector`, `value` | `secret` (bool, default `false`) | Fill an input field. `value` may be `${ENV_VAR}` to pull from the environment instead of a literal — required (not optional) when `secret = true`, so a credential can't accidentally end up committed as plaintext next to the flow that uses it. |
 | `click` | `selector` | — | Click an element |
 | `wait` | `ms` | — | Wait N milliseconds |
@@ -416,10 +416,47 @@ READMEs and most players, but not for direct upload to LinkedIn/YouTube (see bel
 
 ---
 
+## Accessibility Snapshots
+
+Set `accessibility_snapshot = true` on a `capture` step to also write the page's accessibility
+tree — Playwright's `aria_snapshot()` — alongside the PNG:
+
+```toml
+[[flows.steps]]
+action = "capture"
+name   = "dashboard"
+accessibility_snapshot = true
+```
+
+Produces `{flow_name}/dashboard.aria.yaml`:
+
+```yaml
+- heading "Dashboard" [level=1]
+- button "New project"
+- list:
+  - listitem "Project Alpha"
+  - listitem "Project Beta"
+```
+
+This is always for the **whole page**, not scoped to a `selector` on the same step — Playwright's
+`aria_snapshot()` is a page/locator method, not available on the element handle this step uses
+for selector-scoped screenshots.
+
+Why this exists alongside vision descriptions: a vision model's description of a PNG is a guess
+at what's semantically present, and costs a model call. The accessibility tree is exact — it's
+what assistive technology actually sees — and free to generate. For an *agent* consuming
+Screenwright's output (rather than a human reading a doc), the tree is often more useful input
+than the screenshot itself.
+
+---
+
 ## Output Format
 
 ### `{flow_name}/{capture_name}.png`
 Full-page or element screenshot.
+
+### `{flow_name}/{capture_name}.aria.yaml` *(when `accessibility_snapshot = true`)*
+The page's accessibility tree — see [Accessibility Snapshots](#accessibility-snapshots).
 
 ### `{flow_name}/{capture_name}.json` *(when `structured_metadata = true`)*
 ```json
