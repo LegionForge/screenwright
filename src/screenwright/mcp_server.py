@@ -128,6 +128,7 @@ async def run_flow_tool(
     flow_name: str,
     config_path: Optional[str] = None,
     output_dir: Optional[str] = None,
+    vision_describe: bool = False,
 ) -> dict:
     """
     Execute a named flow from a TOML config file.
@@ -136,6 +137,16 @@ async def run_flow_tool(
         flow_name: Name of the flow to run (must exist in the config).
         config_path: Path to TOML config. Falls back to SCREENWRIGHT_CONFIG env var.
         output_dir: Override the output directory from the config.
+        vision_describe: When true, run the config's vision provider on each capture
+            after the flow completes and write `{name}.json` metadata sidecars — the
+            same auto-describe step `cli.py`'s `run` command performs, now available
+            here too. Without this, nothing on the MCP surface ever writes a sidecar,
+            so `describe_flow` afterward has no metadata to bundle unless you call
+            `describe_screenshot` yourself for every capture path. A per-capture
+            describe() failure doesn't abort the others or fail this call — that
+            capture's sidecar is simply not written, matching `output.py`'s existing
+            "metadata is optional" handling. Defaults to false since this call is
+            otherwise fast and free of vision-API cost.
 
     Returns:
         A dict: {"captures": [absolute PNG paths], "video_path": str | None,
@@ -154,6 +165,18 @@ async def run_flow_tool(
 
     out_root = _resolve_output(cfg, output_dir)
     result: FlowResult = await run_flow(flow_def, cfg, out_root)
+
+    if vision_describe and result.captures:
+        from screenwright.output import write_flow_output
+        from screenwright.vision import describe
+
+        for capture in result.captures:
+            try:
+                capture.metadata = await asyncio.to_thread(describe, capture.path, cfg.vision)
+            except Exception:
+                pass  # leave metadata unset; output.py/describe_flow already tolerate None
+        write_flow_output(result, out_root)
+
     return {
         "captures": [str(c.path) for c in result.captures],
         "video_path": str(result.video_path) if result.video_path else None,

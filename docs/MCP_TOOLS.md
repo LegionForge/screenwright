@@ -68,6 +68,7 @@ Execute a named flow from a TOML config — the multi-step, potentially video-re
 | `flow_name` | string | yes | Name of the flow to run (must exist in the config) |
 | `config_path` | string | no | Path to TOML config. Falls back to `SCREENWRIGHT_CONFIG` |
 | `output_dir` | string | no | Override the config's `output_dir` |
+| `vision_describe` | bool | no | Default `false`. When true, describes each capture with the config's vision provider and writes `{name}.json` sidecars (+ regenerates `index.md`) — the same auto-describe step `cli.py`'s `run` does. Without this, `describe_flow` afterward has nothing to bundle unless you call `describe_screenshot` per capture yourself; see [Error handling for agents](#error-handling-for-agents) below |
 
 **Returns:** a dict:
 ```json
@@ -154,12 +155,15 @@ Transient failures already retry internally, so an agent shouldn't blindly re-is
 call hoping a retry helps — that's already handled. `capture_url`/`capture_element`/
 `run_flow_tool` retry a navigation that fails with a Playwright timeout or a `net::ERR_*`
 network error up to 2x with exponential backoff before surfacing anything; `describe_screenshot`
-similarly retries a transient provider failure (429/5xx, timeout) up to 2x. `run_flow_tool`
-itself never calls a vision provider — it's pure capture, no `describe()` call — so vision
-retries only apply where `describe_screenshot` is actually called; `describe_flow` doesn't call
-it either, it only reads `.json` sidecars already on disk (call `describe_screenshot` per
-capture yourself after `run_flow_tool` if you want metadata `describe_flow` can then bundle up).
-See [Architecture](ARCHITECTURE.md) for the exact retry policy.
+similarly retries a transient provider failure (429/5xx, timeout) up to 2x. `run_flow_tool` only
+calls a vision provider when `vision_describe=true` is passed (default `false`) — with the
+default, it's pure capture, no `describe()` call, no vision retries in play at all. When
+`vision_describe=true` *is* set, each capture's `describe()` call still goes through the same
+retry path as `describe_screenshot`, but a failure that survives those retries is swallowed per
+capture rather than surfaced — that capture's `.json` sidecar simply isn't written, the flow
+call itself doesn't fail. `describe_flow` never calls a vision provider either way; it only
+reads whatever `.json` sidecars already exist on disk. See [Architecture](ARCHITECTURE.md) for
+the exact retry policy.
 
 What isn't retried, and what an agent should treat as a real, informative failure rather than
 transient — a bad `selector`, a missing/invalid API key, a wrong `flow_name`, or a navigation

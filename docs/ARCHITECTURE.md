@@ -225,3 +225,14 @@ sequenceDiagram
   see exit code 0 and pass the build even when a flow genuinely failed. Fixed by raising
   `typer.Exit(1)` whenever `failed_flows` is non-empty, combined with (not replacing) the
   existing `--check`-diff exit condition.
+- **`run_flow_tool` had no path to populate `describe_flow`'s metadata at all.** Before this,
+  nothing on the MCP surface ever wrote a `.json` sidecar — `run_flow_tool` is pure capture, and
+  `describe_screenshot` (the only tool that calls a vision provider) never persists its result
+  to disk. An agent wanting `describe_flow` to return real metadata had no way to get there.
+  Fixed by adding an opt-in `vision_describe: bool` param (default `false`) to `run_flow_tool`
+  that, when true, runs the config's vision provider on each capture and calls
+  `write_flow_output` afterward — the exact same capture-then-describe-then-write ordering
+  `cli.py`'s `run` command already uses, reusing the same `describe()`/`write_flow_output`
+  functions rather than duplicating that logic. A per-capture `describe()` failure is swallowed
+  (that capture's sidecar just isn't written), matching `cli.py`'s own per-capture tolerance —
+  it does not surface on `result.error`, which stays reserved for step/setup/finalize failures.

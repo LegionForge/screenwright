@@ -510,6 +510,26 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       `describe_screenshot` call already wrote. Wiki's MCP-Tools-Reference page synced. No code
       changed.)*
 
+- [x] **#34 [medium, small feature gap, found 2026-08-24 following directly from #33]
+      `run_flow_tool` had no path to ever populate `describe_flow`'s metadata** — noticed while
+      fixing #33's factual error: `run_flow_tool` is pure capture (no `describe()` call), and
+      `describe_screenshot` (the only MCP tool that calls a vision provider) never persists its
+      result to disk. Nothing on the MCP surface ever wrote a `.json` sidecar at all — an agent
+      wanting `describe_flow` to return real metadata had no way to get there short of manually
+      calling `describe_screenshot` once per capture and then... nothing, since there's no MCP
+      tool that writes the sidecar either. *(fixed 2026-08-24: added an opt-in
+      `vision_describe: bool` param (default `false`, so existing callers see no behavior
+      change) to `run_flow_tool` — when true, it describes each capture with the config's vision
+      provider and calls `write_flow_output` afterward, the exact same capture-then-describe-
+      then-write ordering `cli.py`'s `run` command already uses, reusing `describe()`/
+      `write_flow_output` rather than duplicating that logic. A per-capture `describe()` failure
+      is swallowed (matching `cli.py`'s own per-capture tolerance) rather than surfaced on
+      `result.error`. 3 new tests (`test_run_flow_tool_vision_describe_writes_metadata_sidecars`,
+      `test_run_flow_tool_defaults_to_no_vision_describe`,
+      `test_run_flow_tool_vision_describe_continues_past_single_failure`). `docs/MCP_TOOLS.md`
+      and the wiki's MCP-Tools-Reference page updated, including correcting the "Error handling"
+      section's retry/failure-surfacing description for the new opt-in vision path.)*
+
 ## Test coverage gaps
 
 - [x] `_describe_anthropic`/`_describe_openai` mocked and tested (2026-08-24, alongside #6).

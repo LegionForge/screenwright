@@ -99,6 +99,162 @@ def test_run_flow_tool_returns_partial_result_dict_on_step_failure(tmp_path):
     assert output["video_path"] is None
 
 
+def test_run_flow_tool_vision_describe_writes_metadata_sidecars(tmp_path, monkeypatch):
+    import json
+
+    from screenwright.vision import ScreenshotMetadata
+
+    def fake_describe(image_path, cfg):
+        return ScreenshotMetadata(description="A login form")
+
+    monkeypatch.setattr("screenwright.vision.describe", fake_describe)
+
+    html = tmp_path / "page.html"
+    html.write_text("<!doctype html><html><body><h1>hi</h1></body></html>")
+    url = f"file://{html}"
+
+    toml_path = tmp_path / "config.toml"
+    toml_path.write_text(
+        f"""
+        [screenwright]
+        base_url = ""
+
+        [[flows]]
+        name = "demo"
+
+          [[flows.steps]]
+          action = "navigate"
+          url = "{url}"
+
+          [[flows.steps]]
+          action = "capture"
+          name = "shot"
+        """
+    )
+    output_dir = tmp_path / "out"
+
+    import asyncio
+
+    output = asyncio.run(
+        run_flow_tool(
+            "demo",
+            config_path=str(toml_path),
+            output_dir=str(output_dir),
+            vision_describe=True,
+        )
+    )
+
+    assert output["error"] is None
+    sidecar = output_dir / "demo" / "shot.json"
+    assert sidecar.exists()
+    assert json.loads(sidecar.read_text())["description"] == "A login form"
+    # write_flow_output also (re)writes index.md, matching cli.py's own
+    # capture-then-describe-then-write ordering.
+    assert (output_dir / "demo" / "index.md").exists()
+
+
+def test_run_flow_tool_defaults_to_no_vision_describe(tmp_path):
+    html = tmp_path / "page.html"
+    html.write_text("<!doctype html><html><body><h1>hi</h1></body></html>")
+    url = f"file://{html}"
+
+    toml_path = tmp_path / "config.toml"
+    toml_path.write_text(
+        f"""
+        [screenwright]
+        base_url = ""
+
+        [[flows]]
+        name = "demo"
+
+          [[flows.steps]]
+          action = "navigate"
+          url = "{url}"
+
+          [[flows.steps]]
+          action = "capture"
+          name = "shot"
+        """
+    )
+    output_dir = tmp_path / "out"
+
+    import asyncio
+
+    output = asyncio.run(
+        run_flow_tool("demo", config_path=str(toml_path), output_dir=str(output_dir))
+    )
+
+    assert output["error"] is None
+    assert len(output["captures"]) == 1
+    # No vision_describe=True passed — no sidecar, and no index.md/JSON
+    # written at all, matching this call's behavior before this option
+    # existed.
+    assert not (output_dir / "demo" / "shot.json").exists()
+    assert not (output_dir / "demo" / "index.md").exists()
+
+
+def test_run_flow_tool_vision_describe_continues_past_single_failure(tmp_path, monkeypatch):
+    import json
+
+    from screenwright.vision import ScreenshotMetadata
+
+    calls = {"count": 0}
+
+    def flaky_describe(image_path, cfg):
+        calls["count"] += 1
+        if calls["count"] == 1:
+            raise RuntimeError("simulated vision API outage")
+        return ScreenshotMetadata(description="second capture described fine")
+
+    monkeypatch.setattr("screenwright.vision.describe", flaky_describe)
+
+    html = tmp_path / "page.html"
+    html.write_text("<!doctype html><html><body><h1>hi</h1></body></html>")
+    url = f"file://{html}"
+
+    toml_path = tmp_path / "config.toml"
+    toml_path.write_text(
+        f"""
+        [screenwright]
+        base_url = ""
+
+        [[flows]]
+        name = "demo"
+
+          [[flows.steps]]
+          action = "navigate"
+          url = "{url}"
+
+          [[flows.steps]]
+          action = "capture"
+          name = "first"
+
+          [[flows.steps]]
+          action = "capture"
+          name = "second"
+        """
+    )
+    output_dir = tmp_path / "out"
+
+    import asyncio
+
+    output = asyncio.run(
+        run_flow_tool(
+            "demo",
+            config_path=str(toml_path),
+            output_dir=str(output_dir),
+            vision_describe=True,
+        )
+    )
+
+    assert output["error"] is None
+    assert len(output["captures"]) == 2
+    assert not (output_dir / "demo" / "first.json").exists()
+    second_sidecar = output_dir / "demo" / "second.json"
+    assert second_sidecar.exists()
+    assert json.loads(second_sidecar.read_text())["description"] == "second capture described fine"
+
+
 def test_resolve_output_prefers_explicit_override():
     cfg = ScreenwrightConfig()
     assert _resolve_output(cfg, "/tmp/explicit-override") == Path("/tmp/explicit-override")
