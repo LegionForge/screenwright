@@ -189,6 +189,23 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       (`test_run_flow_reports_missing_ffmpeg_instead_of_raising`), monkeypatching
       `shutil.which` to simulate a missing ffmpeg deterministically rather than depending on the
       host machine's actual ffmpeg install.)*
+- [x] **#15 [medium, CodeQL-flagged, not in the original Opus pass] GitHub Actions workflow
+      hardening** — GitHub's default CodeQL Actions analysis (enabled once the repo went public)
+      flagged three findings: (1) `ci.yml`'s `test` job had no explicit `permissions` block, so
+      it ran with the repo's default (often read-write) `GITHUB_TOKEN` scope instead of the
+      minimum it actually needs; (2) `publish.yml`'s `build` job had the same gap (its `publish`
+      job already set explicit `id-token: write`, so it wasn't flagged); (3) `publish.yml`'s
+      `pypa/gh-action-pypi-publish@release/v1` step referenced a floating branch tag rather than
+      a pinned commit SHA — a supply-chain risk, since a compromised or rewritten tag would run
+      untrusted code with this job's PyPI publish credentials. *(fixed 2026-08-24: added
+      `permissions: contents: read` at `ci.yml`'s workflow level and to `publish.yml`'s `build`
+      job — matching the least-privilege pattern `security.yml` already used; pinned the PyPI
+      publish step to `release/v1`'s current commit SHA
+      (`dc37677b2e1c63e2034f94d8a5b11f265b73ba33`, tag `v1.14.2`) with a comment naming the tag
+      it corresponds to, so a future intentional upgrade is a one-line diff. No Python code
+      changed; verified by re-running `pytest`/`ruff check`/`ruff format --check` to confirm the
+      unrelated fix didn't regress anything, and by inspecting the YAML directly since GitHub
+      Actions workflows aren't part of the pytest suite.)*
 
 ## Test coverage gaps
 
