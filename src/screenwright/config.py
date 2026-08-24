@@ -43,6 +43,24 @@ class NavigateStep(BaseModel):
     wait_until: Literal["load", "domcontentloaded", "networkidle", "commit"] = "load"
 
 
+class Variant(BaseModel):
+    """One entry in a `capture` step's `variants` matrix.
+
+    Any field left unset falls back to the flow's own default
+    (`Flow.viewport_width`/`viewport_height` for viewport; Chromium's
+    default "light" for color scheme) — a variant only needs to specify
+    what it's actually varying, e.g. `{name = "mobile", viewport_width =
+    390, viewport_height = 844}` or `{name = "dark", color_scheme = "dark"}`.
+    """
+
+    name: str
+    viewport_width: int | None = None
+    viewport_height: int | None = None
+    color_scheme: Literal["light", "dark", "no-preference"] | None = None
+
+    _validate_name = field_validator("name")(validate_safe_name)
+
+
 class CaptureStep(BaseModel):
     action: Literal["capture"]
     name: str
@@ -62,6 +80,16 @@ class CaptureStep(BaseModel):
     `accessibility_snapshot`, not scoped to `selector`). Useful for
     print-formatted documentation output or archiving a page's full
     content beyond the viewport, not just what a screenshot shows.
+    """
+    variants: list[Variant] = Field(default_factory=list)
+    """Capture this step once per variant instead of once — e.g. mobile +
+    desktop, or light + dark — instead of duplicating the whole flow per
+    combination. Each variant produces `{name}-{variant.name}.png` (plus
+    `.aria.yaml`/`.pdf` too, if this step also sets `accessibility_snapshot`/
+    `pdf`). Viewport/color-scheme changes made for variants are restored to
+    the flow's defaults after this step finishes, so later steps in the
+    same flow aren't left running under a variant's settings. An empty list
+    (the default) captures once, exactly as before this field existed.
     """
 
     _validate_name = field_validator("name")(validate_safe_name)

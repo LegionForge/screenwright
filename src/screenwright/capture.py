@@ -170,25 +170,58 @@ async def run_flow(
                     await page.goto(url, wait_until=step.wait_until)
 
                 elif isinstance(step, CaptureStep):
-                    out = flow_dir / f"{step.name}.png"
-                    await _capture_page_or_element(page, out, step.selector)
-                    accessibility_path = None
-                    if step.accessibility_snapshot:
-                        accessibility_path = flow_dir / f"{step.name}.aria.yaml"
-                        accessibility_path.write_text(await page.aria_snapshot(), encoding="utf-8")
-                    pdf_path = None
-                    if step.pdf:
-                        pdf_path = flow_dir / f"{step.name}.pdf"
-                        await page.pdf(path=str(pdf_path))
-                    result.captures.append(
-                        CaptureResult(
-                            flow_name=flow.name,
-                            capture_name=step.name,
-                            path=out,
-                            accessibility_path=accessibility_path,
-                            pdf_path=pdf_path,
+                    for variant in step.variants or [None]:
+                        suffix = f"-{variant.name}" if variant is not None else ""
+                        if variant is not None:
+                            if (
+                                variant.viewport_width is not None
+                                or variant.viewport_height is not None
+                            ):
+                                await page.set_viewport_size(
+                                    {
+                                        "width": variant.viewport_width
+                                        if variant.viewport_width is not None
+                                        else flow.viewport_width,
+                                        "height": variant.viewport_height
+                                        if variant.viewport_height is not None
+                                        else flow.viewport_height,
+                                    }
+                                )
+                            if variant.color_scheme is not None:
+                                await page.emulate_media(color_scheme=variant.color_scheme)
+
+                        out = flow_dir / f"{step.name}{suffix}.png"
+                        await _capture_page_or_element(page, out, step.selector)
+                        accessibility_path = None
+                        if step.accessibility_snapshot:
+                            accessibility_path = flow_dir / f"{step.name}{suffix}.aria.yaml"
+                            accessibility_path.write_text(
+                                await page.aria_snapshot(), encoding="utf-8"
+                            )
+                        pdf_path = None
+                        if step.pdf:
+                            pdf_path = flow_dir / f"{step.name}{suffix}.pdf"
+                            await page.pdf(path=str(pdf_path))
+                        result.captures.append(
+                            CaptureResult(
+                                flow_name=flow.name,
+                                capture_name=f"{step.name}{suffix}",
+                                path=out,
+                                accessibility_path=accessibility_path,
+                                pdf_path=pdf_path,
+                            )
                         )
-                    )
+
+                    if step.variants:
+                        # Restore flow defaults so later steps in this flow
+                        # aren't left running under a variant's viewport/
+                        # color-scheme — emulate_media(color_scheme=None)
+                        # does NOT reset to default, it's a no-op, so this
+                        # must be an explicit value.
+                        await page.set_viewport_size(
+                            {"width": flow.viewport_width, "height": flow.viewport_height}
+                        )
+                        await page.emulate_media(color_scheme="light")
 
                 elif isinstance(step, FillStep):
                     await page.fill(step.selector, _resolve_fill_value(step.value))

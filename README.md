@@ -293,7 +293,7 @@ Set on a flow itself, not on individual steps:
 | Action | Required fields | Optional fields | Description |
 |--------|----------------|-----------------|-------------|
 | `navigate` | `url` | `wait_until` (`load` default, or `domcontentloaded`/`networkidle`/`commit`) | Navigate to URL (relative to `base_url` if starts with `/`). Use `domcontentloaded` for apps with persistent websocket/SSE connections (live dashboards, log viewers) — `networkidle` will time out on them since the connection never goes idle. |
-| `capture` | `name` | `selector`, `accessibility_snapshot` (bool, default `false`), `pdf` (bool, default `false`) | Screenshot the page or a CSS-selected element. `accessibility_snapshot` also writes the *whole page's* accessibility tree to `{name}.aria.yaml` (always whole-page, not scoped to `selector`) — a semantic tree an agent can reason about directly, cheaper and more reliable than a vision-model guess at a PNG. `pdf` also saves the *whole page* as `{name}.pdf` (also always whole-page, Chromium-only). |
+| `capture` | `name` | `selector`, `accessibility_snapshot` (bool, default `false`), `pdf` (bool, default `false`), `variants` (list, default `[]`) | Screenshot the page or a CSS-selected element. `accessibility_snapshot` also writes the *whole page's* accessibility tree to `{name}.aria.yaml` (always whole-page, not scoped to `selector`) — a semantic tree an agent can reason about directly, cheaper and more reliable than a vision-model guess at a PNG. `pdf` also saves the *whole page* as `{name}.pdf` (also always whole-page, Chromium-only). `variants` captures this step once per variant (e.g. mobile + desktop viewport, light + dark) instead of once — see [Capture Variants](#capture-variants) below. |
 | `fill` | `selector`, `value` | `secret` (bool, default `false`) | Fill an input field. `value` may be `${ENV_VAR}` to pull from the environment instead of a literal — required (not optional) when `secret = true`, so a credential can't accidentally end up committed as plaintext next to the flow that uses it. |
 | `click` | `selector` | — | Click an element |
 | `wait` | `ms` | — | Wait N milliseconds |
@@ -465,6 +465,46 @@ Produces `{flow_name}/invoice.pdf` alongside the PNG. Like `accessibility_snapsh
 always for the **whole page**, not scoped to `selector` — Playwright's `page.pdf()` is a
 page-level, Chromium-only API. Useful for print-formatted documentation output, or archiving a
 page's full content beyond what fits in a viewport screenshot.
+
+---
+
+## Capture Variants
+
+Set `variants` on a `capture` step to capture it once per variant — e.g. mobile + desktop
+viewport, or light + dark — instead of duplicating the entire flow per combination:
+
+```toml
+[[flows.steps]]
+action = "capture"
+name   = "dashboard"
+
+  [[flows.steps.variants]]
+  name = "mobile"
+  viewport_width  = 390
+  viewport_height = 844
+
+  [[flows.steps.variants]]
+  name = "desktop-dark"
+  viewport_width  = 1280
+  viewport_height = 720
+  color_scheme    = "dark"
+```
+
+Produces `dashboard-mobile.png` and `dashboard-desktop-dark.png` — no unsuffixed `dashboard.png`,
+since `variants` replaces the single capture entirely, it doesn't add to it. Each variant field
+is optional and falls back to the flow's own default (`viewport_width`/`viewport_height`) or
+Chromium's default (`"light"` for `color_scheme`) — a variant only needs to specify what it's
+actually varying. `accessibility_snapshot`/`pdf` on the same step apply per variant too
+(`dashboard-mobile.aria.yaml`, `dashboard-mobile.pdf`, etc.).
+
+Viewport and color-scheme changes are scoped to this one step — Screenwright restores the flow's
+own defaults immediately after the last variant, so later steps in the same flow aren't left
+running under a variant's settings.
+
+**Interaction with `record = true`:** video recording's frame size is fixed at context creation
+(`record_width`/`record_height`) and can't change mid-recording — the same constraint documented
+under [Video Recording](#video-recording). A variant's viewport still applies to what's rendered
+within that fixed frame; it doesn't resize the video itself.
 
 ---
 

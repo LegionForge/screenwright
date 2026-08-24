@@ -13,6 +13,7 @@ from screenwright.config import (
     Flow,
     NavigateStep,
     ScreenwrightConfig,
+    Variant,
     VisionConfig,
     WaitStep,
     load_config,
@@ -253,3 +254,27 @@ def test_capture_step_pdf_defaults_to_false():
 
 def test_capture_step_accepts_pdf():
     assert CaptureStep(action="capture", name="shot", pdf=True).pdf is True
+
+
+def test_capture_step_variants_defaults_to_empty_list():
+    assert CaptureStep(action="capture", name="shot").variants == []
+
+
+def test_capture_step_accepts_variants():
+    step = CaptureStep(
+        action="capture",
+        name="shot",
+        variants=[
+            {"name": "mobile", "viewport_width": 390, "viewport_height": 844},
+            {"name": "dark", "color_scheme": "dark"},
+        ],
+    )
+    assert len(step.variants) == 2
+    assert step.variants[0].name == "mobile"
+    assert step.variants[0].viewport_width == 390
+    assert step.variants[1].color_scheme == "dark"
+
+
+def test_variant_rejects_path_traversal_name():
+    with pytest.raises(ValidationError):
+        Variant(name="../escape")

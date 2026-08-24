@@ -97,3 +97,12 @@ sequenceDiagram
 - **PDF export follows the same shape, for the same reason.** `CaptureStep.pdf` calls
   `page.pdf()` — also whole-page-only, also Chromium-only — so it's not scoped to `selector`
   either, matching `accessibility_snapshot`'s constraint rather than pretending otherwise.
+- **Capture variants change the existing page in place, not the browser/context lifecycle.**
+  `CaptureStep.variants` loops within the existing `CaptureStep` branch and calls
+  `page.set_viewport_size()`/`page.emulate_media()` on the already-open page before each
+  variant's capture — no new context or page is created. This was a deliberate choice over the
+  alternative (spin up a fresh context per variant) specifically to avoid touching the
+  browser/context setup path at all, keeping this feature low-risk against the well-tested
+  video-recording and error-handling code that setup path shares. One real gotcha this
+  uncovered: `page.emulate_media(color_scheme=None)` is a no-op, not a reset — restoring the
+  flow's default after a `color_scheme` variant requires an explicit `"light"`, not `None`.

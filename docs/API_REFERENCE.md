@@ -40,6 +40,11 @@ A Pydantic discriminated union (on `action`) of: `NavigateStep`, `CaptureStep`, 
 `ClickStep`, `WaitStep`, `HoverStep`, `PressStep`, `CheckStep`, `SelectStep`. See the
 [Flow Reference](../README.md#config-reference) for each step's fields.
 
+### `Variant`
+One entry in `CaptureStep.variants`: `name: str`, `viewport_width: int | None`,
+`viewport_height: int | None`, `color_scheme: Literal["light", "dark", "no-preference"] | None`.
+Unset fields fall back to the flow's own defaults. See [Capture Variants](../README.md#capture-variants).
+
 ### `VisionConfig`
 | Field | Type | Default |
 |---|---|---|
@@ -69,7 +74,9 @@ One-shot capture with no flow/config needed. What `capture_url`/`capture_element
 by the caller after `describe()`, not by `run_flow` itself — see the CLI's `run` command for the
 ordering: capture first, describe second), `accessibility_path: Path | None` (set by `run_flow`
 itself when the step's `accessibility_snapshot = true`), `pdf_path: Path | None` (set when the
-step's `pdf = true`).
+step's `pdf = true`). One `CaptureResult` is produced per variant when the step sets `variants` —
+`capture_name` becomes `{step.name}-{variant.name}` in that case, and no unsuffixed result is
+produced.
 
 ### `FfmpegNotFoundError(RuntimeError)`
 Raised by the internal mp4-conversion step when `record_mp4 = true` and `ffmpeg` isn't on

@@ -194,8 +194,21 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
    a missing/malformed file) would have propagated out of `run_flow` as an unhandled exception,
    contradicting the "always return a `FlowResult`, never raise" contract from finding #1. 3 new
    tests (valid/missing/malformed storage_state). README/API_REFERENCE/ARCHITECTURE/wiki updated.
-3. **Viewport/theme variants** — one flow → matrix of captures (`{width=390, name="mobile"}`,
-   `{color_scheme="dark"}`, etc.) instead of duplicating the whole flow per variant.
+3. **Viewport/theme variants** *(shipped 2026-08-24, deferred twice before this — see below)* —
+   scoped per `capture` step, not per flow: `CaptureStep.variants` (list of `Variant`) captures
+   that one step once per viewport/color-scheme combination instead of once, producing
+   `{name}-{variant.name}.png`. Implementation is deliberately the *simple* design that avoids
+   the risk the earlier deferrals were worried about — instead of spinning up a fresh
+   browser/context per variant (which would have touched the well-tested video-recording and
+   setup-error-handling code that path shares), it calls `page.set_viewport_size()`/
+   `page.emulate_media()` on the *existing* page before each variant's capture, all within the
+   existing `CaptureStep` branch. Zero changes to browser/context lifecycle. One real gotcha
+   found while verifying this against the installed Playwright (1.59) before writing any code:
+   `page.emulate_media(color_scheme=None)` is a no-op, not a reset — restoring the flow's
+   default after a variant requires an explicit `"light"`. Composes with `accessibility_snapshot`/
+   `pdf` on the same step (both apply per variant too). 8 new tests, including one asserting zero
+   behavior change when `variants` is unset (the default for every flow written before this
+   existed). README/API_REFERENCE/ARCHITECTURE/wiki updated.
 4. **Accessibility snapshot export** *(shipped 2026-08-24)* — `page.accessibility.snapshot()`
    was already removed from the installed Playwright version (1.59) by the time this was
    implemented; used the current API, `page.aria_snapshot()` / `Locator.aria_snapshot()`,

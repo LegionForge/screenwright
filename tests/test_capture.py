@@ -726,6 +726,184 @@ def test_run_flow_omits_pdf_by_default(tmp_path):
     assert not (output_root / "no-pdf" / "shot.pdf").exists()
 
 
+def test_run_flow_capture_variants_produce_suffixed_files_only(tmp_path):
+    url = _write_page(tmp_path)
+    toml_path = tmp_path / "config.toml"
+    toml_path.write_text(
+        f"""
+        [screenwright]
+        base_url = ""
+
+        [[flows]]
+        name = "variants"
+
+          [[flows.steps]]
+          action = "navigate"
+          url = "{url}"
+
+          [[flows.steps]]
+          action = "capture"
+          name = "shot"
+
+            [[flows.steps.variants]]
+            name = "mobile"
+            viewport_width = 390
+            viewport_height = 844
+
+            [[flows.steps.variants]]
+            name = "desktop"
+            viewport_width = 1280
+            viewport_height = 720
+        """
+    )
+    cfg = load_config(toml_path)
+    flow = cfg.get_flow("variants")
+    output_root = tmp_path / "output"
+
+    import asyncio
+
+    result = asyncio.run(run_flow(flow, cfg, output_root))
+
+    assert result.error is None
+    names = [c.capture_name for c in result.captures]
+    assert names == ["shot-mobile", "shot-desktop"]
+
+    mobile_width, _ = _png_dimensions(output_root / "variants" / "shot-mobile.png")
+    desktop_width, _ = _png_dimensions(output_root / "variants" / "shot-desktop.png")
+    assert mobile_width == 390
+    assert desktop_width == 1280
+
+    # Variants replace the single capture entirely — no unsuffixed "shot.png".
+    assert not (output_root / "variants" / "shot.png").exists()
+
+
+def test_run_flow_restores_viewport_after_variants_step(tmp_path):
+    url = _write_page(tmp_path)
+    toml_path = tmp_path / "config.toml"
+    toml_path.write_text(
+        f"""
+        [screenwright]
+        base_url = ""
+
+        [[flows]]
+        name = "restore-viewport"
+
+          [[flows.steps]]
+          action = "navigate"
+          url = "{url}"
+
+          [[flows.steps]]
+          action = "capture"
+          name = "first"
+
+            [[flows.steps.variants]]
+            name = "mobile"
+            viewport_width = 390
+            viewport_height = 844
+
+          [[flows.steps]]
+          action = "capture"
+          name = "second"
+        """
+    )
+    cfg = load_config(toml_path)
+    flow = cfg.get_flow("restore-viewport")
+    output_root = tmp_path / "output"
+
+    import asyncio
+
+    result = asyncio.run(run_flow(flow, cfg, output_root))
+
+    assert result.error is None
+    # "second" has no variants — it must run at the flow's own default
+    # viewport (1280), not be left at "first" variant's mobile width.
+    second = next(c for c in result.captures if c.capture_name == "second")
+    width, _ = _png_dimensions(second.path)
+    assert width == 1280
+
+
+def test_run_flow_variants_compose_with_accessibility_snapshot_and_pdf(tmp_path):
+    url = _write_page(tmp_path)
+    toml_path = tmp_path / "config.toml"
+    toml_path.write_text(
+        f"""
+        [screenwright]
+        base_url = ""
+
+        [[flows]]
+        name = "variants-with-extras"
+
+          [[flows.steps]]
+          action = "navigate"
+          url = "{url}"
+
+          [[flows.steps]]
+          action = "capture"
+          name = "shot"
+          accessibility_snapshot = true
+          pdf = true
+
+            [[flows.steps.variants]]
+            name = "mobile"
+            viewport_width = 390
+            viewport_height = 844
+        """
+    )
+    cfg = load_config(toml_path)
+    flow = cfg.get_flow("variants-with-extras")
+    output_root = tmp_path / "output"
+
+    import asyncio
+
+    result = asyncio.run(run_flow(flow, cfg, output_root))
+
+    assert result.error is None
+    capture = result.captures[0]
+    assert capture.capture_name == "shot-mobile"
+    assert (
+        capture.accessibility_path == output_root / "variants-with-extras" / "shot-mobile.aria.yaml"
+    )
+    assert capture.accessibility_path.exists()
+    assert capture.pdf_path == output_root / "variants-with-extras" / "shot-mobile.pdf"
+    assert capture.pdf_path.exists()
+
+
+def test_run_flow_capture_step_without_variants_behaves_exactly_as_before(tmp_path):
+    # Zero variants is the default — confirms no behavior change for every
+    # flow written before this feature existed.
+    url = _write_page(tmp_path)
+    toml_path = tmp_path / "config.toml"
+    toml_path.write_text(
+        f"""
+        [screenwright]
+        base_url = ""
+
+        [[flows]]
+        name = "no-variants"
+
+          [[flows.steps]]
+          action = "navigate"
+          url = "{url}"
+
+          [[flows.steps]]
+          action = "capture"
+          name = "shot"
+        """
+    )
+    cfg = load_config(toml_path)
+    flow = cfg.get_flow("no-variants")
+    output_root = tmp_path / "output"
+
+    import asyncio
+
+    result = asyncio.run(run_flow(flow, cfg, output_root))
+
+    assert result.error is None
+    assert len(result.captures) == 1
+    assert result.captures[0].capture_name == "shot"
+    assert result.captures[0].path == output_root / "no-variants" / "shot.png"
+
+
 def test_run_flow_check_and_select_steps(tmp_path):
     url = _write_page(tmp_path)
     toml_path = tmp_path / "config.toml"
