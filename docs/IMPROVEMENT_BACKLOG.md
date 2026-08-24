@@ -91,8 +91,12 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       10 new tests mock the SDK clients directly (`monkeypatch.setattr(anthropic, "Anthropic",
       ...)` etc.) rather than the network. `_describe_ollama` remains untested — its response
       shape (plain dict) doesn't have this class of bug, lower priority.)*
-- [ ] **#7 [low-medium] `except (json.JSONDecodeError, Exception)` swallows everything** —
-      `vision.py:54`. Narrow to `(json.JSONDecodeError, ValidationError)`.
+- [x] **#7 [low-medium] `except (json.JSONDecodeError, Exception)` swallows everything** —
+      `vision.py:54`. Narrow to `(json.JSONDecodeError, ValidationError)`. *(fixed 2026-08-24 —
+      a bare `except Exception` there would also swallow real bugs unrelated to "model didn't
+      return the JSON shape we asked for", e.g. a TypeError from bad input. Test forces a
+      non-JSONDecodeError/ValidationError exception via monkeypatched `json.loads` and asserts
+      it now propagates instead of being silently absorbed into the fallback path.)*
 - [x] **mcp SDK 2.0.0 broke CI** — `mcp` shipped a breaking major release that removed
       `mcp.server.fastmcp` (rewritten around a new `mcpserver` module), and `mcp>=1.0.0` let CI
       resolve it. This is finding #8 below manifesting for real. *(pinned `mcp>=1.0.0,<2.0.0`

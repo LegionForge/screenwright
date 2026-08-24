@@ -7,7 +7,7 @@ import warnings
 from pathlib import Path
 from typing import Callable, TypeVar
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
 from screenwright.config import VisionConfig
 
@@ -85,8 +85,11 @@ def _parse_response(text: str, structured: bool) -> ScreenshotMetadata:
     try:
         data = json.loads(cleaned)
         return ScreenshotMetadata.model_validate(data)
-    except (json.JSONDecodeError, Exception):
-        # Graceful fallback: treat entire response as the description
+    except (json.JSONDecodeError, ValidationError):
+        # Graceful fallback: treat entire response as the description. Only
+        # for "the model didn't return the JSON shape we asked for" — a bare
+        # `except Exception` here would also swallow real bugs (e.g. a
+        # TypeError from a caller passing something that isn't a string).
         return ScreenshotMetadata(description=text.strip())
 
 

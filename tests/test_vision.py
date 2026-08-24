@@ -77,6 +77,20 @@ def test_parse_response_structured_falls_back_when_required_field_missing():
     assert result.description == text
 
 
+def test_parse_response_does_not_swallow_unrelated_errors(monkeypatch):
+    # The fallback only covers "the model didn't return the JSON shape we
+    # asked for" (JSONDecodeError / pydantic ValidationError). A genuine bug
+    # elsewhere in this code path — simulated here as json.loads raising
+    # something else entirely — must propagate, not get silently absorbed
+    # into "treat it as a plain-text description".
+    def broken_loads(_text):
+        raise TypeError("simulated unrelated bug")
+
+    monkeypatch.setattr("screenwright.vision.json.loads", broken_loads)
+    with pytest.raises(TypeError):
+        _parse_response('{"description": "x"}', structured=True)
+
+
 class _FakeRateLimitError(Exception):
     def __init__(self):
         self.status_code = 429
