@@ -297,6 +297,7 @@ Set on a flow itself, not on individual steps:
 | `timeout_ms` | int | `30000` | Default timeout for navigation and actions (selectors, clicks, etc.) — a step that exceeds this fails with a clear "Timeout" error via the normal per-step error handling, rather than hanging |
 | `storage_state` | string | `null` | Path to a Playwright `storage_state` JSON file (cookies + localStorage) to load before the flow runs — capture an already-authenticated session instead of scripting a login with `fill`/`click` steps every run. Generate one with `playwright codegen --save-storage=state.json` after logging in manually, or `context.storage_state(path=...)` in a setup script. |
 | `record` / `record_width` / `record_height` / `record_mp4` | — | see [Video Recording](#video-recording) | Flow-level video capture |
+| `har` | bool | `false` | Record the flow's network traffic to `{flow_name}.har` — see [Network Capture](#network-capture) |
 
 ### Flow steps
 
@@ -423,6 +424,32 @@ multiple flows if you only want part of a sequence recorded.
 `record_mp4` shells out to `ffmpeg` (`brew install ffmpeg` on macOS) to transcode the `.webm`
 to H.264 `.mp4` after recording finishes. Without it, output stays `.webm` — fine for GitHub
 READMEs and most players, but not for direct upload to LinkedIn/YouTube (see below).
+
+---
+
+## Network Capture
+
+Set `har = true` on a flow to record its network traffic to `{flow_name}.har` (Playwright's own
+HAR format — every request/response, timing, and header for the whole flow):
+
+```toml
+[[flows]]
+name = "checkout"
+har  = true
+
+  [[flows.steps]]
+  action = "navigate"
+  url    = "/checkout"
+
+  # ...steps as usual
+```
+
+Useful for debugging why a capture rendered blank or wrong — a failed API call, a slow resource,
+a redirect loop — without needing to reproduce the issue interactively; open the `.har` file in
+Chrome DevTools' Network tab (drag it in) or any HAR viewer. Flow-scoped like `record`, for the
+same reason: it's a context/page-level recorder that only flushes to disk when the page closes,
+so it can't be toggled mid-flow the way a `capture` step's own options can. Composes fine with
+`record = true` — both video and HAR flush independently on the same page/context close.
 
 ---
 

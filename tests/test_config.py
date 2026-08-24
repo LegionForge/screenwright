@@ -298,3 +298,11 @@ def test_capture_step_accepts_mask_selectors_and_color():
     )
     assert step.mask == ["#clock", ".avatar"]
     assert step.mask_color == "#000000"
+
+
+def test_flow_har_defaults_to_false():
+    assert Flow(name="test").har is False
+
+
+def test_flow_accepts_har():
+    assert Flow(name="test", har=True).har is True

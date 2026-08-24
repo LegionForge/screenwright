@@ -237,6 +237,116 @@ def test_run_flow_without_recording_has_no_video(tmp_path):
     assert result.video_path is None
 
 
+def test_run_flow_with_har_records_network_traffic(tmp_path):
+    url = _write_page(tmp_path)
+    toml_path = tmp_path / "config.toml"
+    toml_path.write_text(
+        f"""
+        [screenwright]
+        base_url = ""
+
+        [[flows]]
+        name = "har-flow"
+        har = true
+
+          [[flows.steps]]
+          action = "navigate"
+          url = "{url}"
+
+          [[flows.steps]]
+          action = "capture"
+          name = "shot"
+        """
+    )
+    cfg = load_config(toml_path)
+    flow = cfg.get_flow("har-flow")
+    output_root = tmp_path / "output"
+
+    import asyncio
+
+    result = asyncio.run(run_flow(flow, cfg, output_root))
+
+    assert result.error is None
+    assert result.har_path is not None
+    assert result.har_path == output_root / "har-flow" / "har-flow.har"
+    assert result.har_path.exists()
+    assert result.har_path.stat().st_size > 0
+    # HAR is JSON — at minimum it must parse and have the top-level "log" key.
+    import json
+
+    har_data = json.loads(result.har_path.read_text())
+    assert "log" in har_data
+
+
+def test_run_flow_without_har_produces_no_har_file(tmp_path):
+    url = _write_page(tmp_path)
+    toml_path = tmp_path / "config.toml"
+    toml_path.write_text(
+        f"""
+        [screenwright]
+        base_url = ""
+
+        [[flows]]
+        name = "no-har"
+
+          [[flows.steps]]
+          action = "navigate"
+          url = "{url}"
+
+          [[flows.steps]]
+          action = "capture"
+          name = "shot"
+        """
+    )
+    cfg = load_config(toml_path)
+    flow = cfg.get_flow("no-har")
+    output_root = tmp_path / "output"
+
+    import asyncio
+
+    result = asyncio.run(run_flow(flow, cfg, output_root))
+
+    assert result.har_path is None
+    assert not (output_root / "no-har" / "no-har.har").exists()
+
+
+def test_run_flow_with_har_and_recording_together(tmp_path):
+    url = _write_page(tmp_path)
+    toml_path = tmp_path / "config.toml"
+    toml_path.write_text(
+        f"""
+        [screenwright]
+        base_url = ""
+
+        [[flows]]
+        name = "har-and-video"
+        har = true
+        record = true
+
+          [[flows.steps]]
+          action = "navigate"
+          url = "{url}"
+
+          [[flows.steps]]
+          action = "capture"
+          name = "shot"
+        """
+    )
+    cfg = load_config(toml_path)
+    flow = cfg.get_flow("har-and-video")
+    output_root = tmp_path / "output"
+
+    import asyncio
+
+    result = asyncio.run(run_flow(flow, cfg, output_root))
+
+    assert result.error is None
+    assert result.har_path is not None
+    assert result.har_path.exists()
+    assert result.video_path is not None
+    assert result.video_path.exists()
+
+
 def test_run_flow_step_failure_returns_partial_result_not_exception(tmp_path):
     url = _write_page(tmp_path)
     toml_path = tmp_path / "config.toml"

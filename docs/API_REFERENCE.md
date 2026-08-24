@@ -34,6 +34,7 @@ Methods: `.get_flow(name: str) -> Flow \| None`, `.flow_names() -> list[str]`.
 | `viewport_width` / `viewport_height` | `int` | `1280` / `720` |
 | `timeout_ms` | `int` | `30000` |
 | `storage_state` | `str \| None` | `None` |
+| `har` | `bool` | `false` |
 
 ### `Step`
 A Pydantic discriminated union (on `action`) of: `NavigateStep`, `CaptureStep`, `FillStep`,
@@ -70,7 +71,7 @@ One-shot capture with no flow/config needed. What `capture_url`/`capture_element
 
 ### `FlowResult`
 `flow_name: str`, `captures: list[CaptureResult]`, `video_path: Path | None`,
-`video_mp4_path: Path | None`.
+`video_mp4_path: Path | None`, `har_path: Path | None` (set when the flow's `har = true`).
 
 ### `CaptureResult`
 `flow_name: str`, `capture_name: str`, `path: Path`, `metadata: ScreenshotMetadata | None` (set

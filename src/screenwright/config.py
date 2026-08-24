@@ -209,6 +209,16 @@ class Flow(BaseModel):
     filesystem when the flow actually runs); a missing/invalid file
     surfaces as a normal Playwright error when the browser context opens.
     """
+    har: bool = False
+    """When true, record the flow's network traffic to `{flow_name}.har`
+    (Playwright's own HAR format) — every request/response, timing, and
+    header for the whole flow. Useful for debugging why a capture rendered
+    blank or wrong (a failed API call, a slow resource, a redirect loop)
+    without needing to reproduce the issue interactively. Flow-scoped like
+    `record`, for the same reason: it's a context/page-level recorder that
+    only flushes to disk when the page closes, so it can't be toggled
+    mid-flow the way a `capture` step's own options can.
+    """
 
     _validate_name = field_validator("name")(validate_safe_name)
 

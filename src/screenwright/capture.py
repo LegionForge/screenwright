@@ -59,6 +59,7 @@ class FlowResult:
     captures: list[CaptureResult] = field(default_factory=list)
     video_path: Optional[Path] = None
     video_mp4_path: Optional[Path] = None
+    har_path: Optional[Path] = None
     failed_step_index: Optional[int] = None
     error: Optional[str] = None
 
@@ -157,6 +158,7 @@ async def run_flow(
         browser: Browser = await p.chromium.launch()
 
         viewport = {"width": flow.viewport_width, "height": flow.viewport_height}
+        har_path = flow_dir / f"{flow.name}.har" if flow.har else None
         context: Optional[BrowserContext] = None
         page: Optional[Page] = None
         try:
@@ -166,10 +168,15 @@ async def run_flow(
                     storage_state=flow.storage_state,
                     record_video_dir=str(flow_dir),
                     record_video_size={"width": flow.record_width, "height": flow.record_height},
+                    record_har_path=str(har_path) if har_path else None,
                 )
                 page = await context.new_page()
             else:
-                page = await browser.new_page(viewport=viewport, storage_state=flow.storage_state)
+                page = await browser.new_page(
+                    viewport=viewport,
+                    storage_state=flow.storage_state,
+                    record_har_path=str(har_path) if har_path else None,
+                )
             page.set_default_timeout(flow.timeout_ms)
         except Exception as exc:
             # A bad storage_state path is the likeliest failure here, but
@@ -278,15 +285,21 @@ async def run_flow(
                 result.error = f"Step {index} ({step.action}) failed: {exc}"
                 break
 
-        # Always finalize video and close the browser, even if a step above
-        # failed — otherwise a mid-flow error both loses the whole recording
-        # (the .webm only flushes on context.close()) and leaks the browser
-        # process. This runs whether or not the loop above broke early.
+        # Always finalize video/HAR and close the browser, even if a step
+        # above failed — otherwise a mid-flow error both loses the whole
+        # recording (.webm/.har only flush on page/context close, not on
+        # browser.close() alone) and leaks the browser process. This runs
+        # whether or not the loop above broke early. Closing the page
+        # explicitly (not just relying on browser.close() to sweep it up)
+        # is required for HAR even when record=false and there's no
+        # separate context to close — verified directly against the
+        # installed Playwright before relying on it.
         try:
-            if context is not None and page is not None:
-                video = page.video
+            if page is not None:
+                video = page.video if context is not None else None
                 await page.close()
-                await context.close()
+                if context is not None:
+                    await context.close()
                 if video is not None:
                     raw_path = Path(await video.path())
                     final_path = flow_dir / f"{flow.name}.webm"
@@ -294,6 +307,8 @@ async def run_flow(
                     result.video_path = final_path
                     if flow.record_mp4:
                         result.video_mp4_path = await _convert_to_mp4(final_path)
+                if har_path is not None:
+                    result.har_path = har_path
         finally:
             await browser.close()
 

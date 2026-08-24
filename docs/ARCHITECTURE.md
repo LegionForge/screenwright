@@ -122,3 +122,13 @@ sequenceDiagram
   progress under `--concurrency > 1`. The per-flow progress task is created only after the
   semaphore is acquired (not upfront for every flow), so the default case's progress display is
   pixel-for-pixel the same as before — tasks appear one at a time, in order.
+- **HAR capture required broadening the page-close logic, not just adding a Playwright kwarg.**
+  `Flow.har` passes `record_har_path` to `browser.new_page()`/`new_context()` the same way
+  `storage_state` does, but the `.har` file — like `.webm` — only flushes when the page (and
+  context, if any) is explicitly closed, not on `browser.close()` alone. Before this, the
+  non-`record` path never closed `page` explicitly (relying on `browser.close()` to sweep it
+  up), which is exactly the case where HAR would have silently produced an empty/missing file.
+  Verified directly against the installed Playwright before writing any code, and the finalize
+  block's guard broadened from `context is not None and page is not None` to just
+  `page is not None` so `page.close()` always runs — harmless when neither video nor HAR is
+  active, required when either is.

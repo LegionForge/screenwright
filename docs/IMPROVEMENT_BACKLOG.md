@@ -255,11 +255,18 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
    progress display is pixel-for-pixel identical to before this option existed — verified with a
    parametrized test running the same 2-flow config at concurrency 1 and 2. 3 new tests.
    README/ARCHITECTURE/wiki updated.
-9. **PDF export** *(shipped 2026-08-24)* / HAR capture (not done). `CaptureStep.pdf` calls
+9. **PDF export** / **HAR capture** — both shipped 2026-08-24. `CaptureStep.pdf` calls
    `page.pdf()` — Chromium-only, whole-page like `accessibility_snapshot` (not scoped to
    `selector`, same underlying reason: not available on the `ElementHandle` this step's
-   selector path uses). 5 new tests, README/API_REFERENCE/ARCHITECTURE/wiki updated. HAR capture
-   still not implemented — lower priority, not core to the MCP+vision differentiator.
+   selector path uses). 5 new tests. `Flow.har` records network traffic to `{flow_name}.har`,
+   flow-scoped like `record` (context/page-level recorder, can't toggle mid-flow). Implementing
+   HAR surfaced a real gap verified directly against the installed Playwright before writing
+   code: `.har` (like `.webm`) only flushes on explicit page/context close, and the non-`record`
+   path never closed `page` explicitly before this — HAR would have silently produced an empty
+   file in that case. Broadened the finalize block's guard from
+   `context is not None and page is not None` to just `page is not None` to fix it — harmless
+   when neither video nor HAR is active. 5 new tests including HAR+video together.
+   README/API_REFERENCE/ARCHITECTURE/wiki updated for both.
 10. **`describe_flow` MCP tool** *(shipped 2026-08-24)* — whole index.md + metadata bundle in
     one call instead of N `describe_screenshot` round-trips. Pure filesystem read (no
     Playwright, no changes to the core capture path) — reads what `run_flow_tool` +
