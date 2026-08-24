@@ -10,8 +10,8 @@ from pydantic import ValidationError
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
-from screenwright.capture import run_flow
-from screenwright.config import ScreenwrightConfig, load_config
+from screenwright.capture import FlowResult, run_flow
+from screenwright.config import Flow, ScreenwrightConfig, load_config
 from screenwright.output import write_flow_output, write_root_readme
 from screenwright.vision import describe
 
@@ -63,6 +63,83 @@ def _load_config_or_exit(config_path: Path) -> ScreenwrightConfig:
         raise typer.Exit(1) from None
 
 
+async def _process_flow(
+    flow_def: Flow,
+    cfg: ScreenwrightConfig,
+    output_root: Path,
+    progress: Progress,
+    semaphore: asyncio.Semaphore,
+) -> FlowResult:
+    """Run one flow, describe its captures, and write its output.
+
+    The progress task is created only after the semaphore is acquired
+    (not upfront for all flows) so that with the default concurrency=1
+    this produces the exact same one-task-at-a-time progress display as
+    before concurrency existed — no visible behavior change for the
+    default case, only for opt-in --concurrency > 1.
+    """
+    async with semaphore:
+        task = progress.add_task(f"Running flow: [bold]{flow_def.name}[/bold]", total=None)
+        result = await run_flow(flow_def, cfg, output_root)
+
+        if cfg.vision_describe and result.captures:
+            progress.update(
+                task,
+                description=f"Describing screenshots: [bold]{flow_def.name}[/bold]",
+            )
+            for capture in result.captures:
+                try:
+                    # describe() is synchronous (sync vendor SDK clients) —
+                    # run it off the event loop so it doesn't block other
+                    # flows running concurrently under --concurrency > 1.
+                    capture.metadata = await asyncio.to_thread(describe, capture.path, cfg.vision)
+                except Exception as exc:
+                    # A single bad describe() call (API blip, bad key,
+                    # provider outage) must not abort every remaining
+                    # capture in this flow or every remaining flow in
+                    # the run — leave metadata unset (output.py already
+                    # tolerates that) and keep going.
+                    console.print(
+                        f"[yellow]Warning:[/yellow] describe failed for "
+                        f"{capture.capture_name!r}: {exc}"
+                    )
+
+        write_flow_output(result, output_root)
+        if result.error:
+            progress.update(
+                task,
+                completed=True,
+                description=f"[yellow]Partial:[/yellow] {flow_def.name} — {result.error}",
+            )
+        else:
+            progress.update(
+                task,
+                completed=True,
+                description=f"[green]Done:[/green] {flow_def.name}",
+            )
+        return result
+
+
+async def _run_flows(
+    flows_to_run: list[Flow],
+    cfg: ScreenwrightConfig,
+    output_root: Path,
+    concurrency: int,
+) -> list[FlowResult]:
+    semaphore = asyncio.Semaphore(concurrency)
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        console=console,
+    ) as progress:
+        return await asyncio.gather(
+            *(
+                _process_flow(flow_def, cfg, output_root, progress, semaphore)
+                for flow_def in flows_to_run
+            )
+        )
+
+
 @app.command()
 def run(
     config_path: Path = typer.Argument(..., help="Path to TOML config file"),
@@ -70,11 +147,22 @@ def run(
     output: Optional[Path] = typer.Option(
         None, "--output", "-o", help="Override output directory from config"
     ),
+    concurrency: int = typer.Option(
+        1,
+        "--concurrency",
+        "-j",
+        help="Run up to N flows concurrently (default 1 = sequential, same as before this "
+        "option existed). Each flow launches its own browser, so raise this cautiously.",
+    ),
 ) -> None:
     """Execute screenshot flows defined in a TOML config file."""
     cfg = _load_config_or_exit(config_path)
     output_root = _resolve_output(cfg.output_dir, output)
     output_root.mkdir(parents=True, exist_ok=True)
+
+    if concurrency < 1:
+        console.print("[red]--concurrency must be at least 1.[/red]")
+        raise typer.Exit(1)
 
     flows_to_run = cfg.flows
     if flow:
@@ -89,50 +177,7 @@ def run(
         console.print("[yellow]No flows defined in config.[/yellow]")
         raise typer.Exit(0)
 
-    all_results = []
-
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        console=console,
-    ) as progress:
-        for flow_def in flows_to_run:
-            task = progress.add_task(f"Running flow: [bold]{flow_def.name}[/bold]", total=None)
-            result = asyncio.run(run_flow(flow_def, cfg, output_root))
-
-            if cfg.vision_describe and result.captures:
-                progress.update(
-                    task,
-                    description=f"Describing screenshots: [bold]{flow_def.name}[/bold]",
-                )
-                for capture in result.captures:
-                    try:
-                        capture.metadata = describe(capture.path, cfg.vision)
-                    except Exception as exc:
-                        # A single bad describe() call (API blip, bad key,
-                        # provider outage) must not abort every remaining
-                        # capture in this flow or every remaining flow in
-                        # the run — leave metadata unset (output.py already
-                        # tolerates that) and keep going.
-                        console.print(
-                            f"[yellow]Warning:[/yellow] describe failed for "
-                            f"{capture.capture_name!r}: {exc}"
-                        )
-
-            write_flow_output(result, output_root)
-            all_results.append(result)
-            if result.error:
-                progress.update(
-                    task,
-                    completed=True,
-                    description=f"[yellow]Partial:[/yellow] {flow_def.name} — {result.error}",
-                )
-            else:
-                progress.update(
-                    task,
-                    completed=True,
-                    description=f"[green]Done:[/green] {flow_def.name}",
-                )
+    all_results = asyncio.run(_run_flows(flows_to_run, cfg, output_root, concurrency))
 
     write_root_readme(all_results, output_root)
 

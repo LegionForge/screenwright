@@ -108,6 +108,16 @@ Run a single flow from a multi-flow config:
 screenwright run flow.toml --flow login-flow
 ```
 
+Run multiple flows concurrently instead of one at a time (default is `--concurrency 1`, i.e.
+today's sequential behavior — nothing changes unless you opt in):
+
+```bash
+screenwright run flow.toml --concurrency 4
+```
+
+Each flow launches its own browser, so raise this cautiously — 4 is a reasonable starting point
+on a typical dev machine; there's no auto-detection of a "safe" number based on your hardware.
+
 List flows in a config without running:
 
 ```bash

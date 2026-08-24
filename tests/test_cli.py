@@ -50,6 +50,68 @@ def _write_two_capture_flow(tmp_path):
     return toml_path
 
 
+def _write_two_flow_config(tmp_path):
+    html = tmp_path / "page.html"
+    html.write_text(_HTML)
+    url = f"file://{html}"
+
+    toml_path = tmp_path / "config.toml"
+    toml_path.write_text(
+        f"""
+        [screenwright]
+        base_url = ""
+
+        [[flows]]
+        name = "alpha"
+
+          [[flows.steps]]
+          action = "navigate"
+          url = "{url}"
+
+          [[flows.steps]]
+          action = "capture"
+          name = "shot"
+
+        [[flows]]
+        name = "beta"
+
+          [[flows.steps]]
+          action = "navigate"
+          url = "{url}"
+
+          [[flows.steps]]
+          action = "capture"
+          name = "shot"
+        """
+    )
+    return toml_path
+
+
+def test_run_rejects_concurrency_below_one(tmp_path):
+    toml_path = _write_two_flow_config(tmp_path)
+    result = runner.invoke(app, ["run", str(toml_path), "--concurrency", "0"])
+    assert result.exit_code == 1
+    assert "--concurrency must be at least 1" in result.output
+
+
+@pytest.mark.parametrize("concurrency", [1, 2])
+def test_run_completes_all_flows_at_various_concurrency(tmp_path, concurrency):
+    toml_path = _write_two_flow_config(tmp_path)
+    output_dir = tmp_path / "out"
+
+    result = runner.invoke(
+        app,
+        ["run", str(toml_path), "--output", str(output_dir), "--concurrency", str(concurrency)],
+    )
+
+    assert result.exit_code == 0
+    assert (output_dir / "alpha" / "shot.png").exists()
+    assert (output_dir / "beta" / "shot.png").exists()
+    root_readme = (output_dir / "README.md").read_text()
+    assert "alpha" in root_readme
+    assert "beta" in root_readme
+
+
 def test_run_continues_past_a_single_describe_failure(tmp_path, monkeypatch):
     toml_path = _write_two_capture_flow(tmp_path)
     output_dir = tmp_path / "out"

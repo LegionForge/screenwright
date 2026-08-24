@@ -114,3 +114,11 @@ sequenceDiagram
   avatars, etc.); unlike `selector`, a `mask` entry matching nothing is a silent no-op, verified
   directly against the installed Playwright before relying on it — an optional masking target
   not being present everywhere a flow runs isn't a flow failure.
+- **Concurrency is opt-in, not the default, in the CLI.** `cli.py run --concurrency N` bounds
+  concurrent flows with an `asyncio.Semaphore`, defaulting to 1 — identical sequential behavior
+  to before this option existed. This meant restructuring `run` from "call `asyncio.run()` once
+  per flow in a sync loop" to one `asyncio.run()` wrapping the whole command, and wrapping the
+  synchronous `describe()` call in `asyncio.to_thread()` so it doesn't block other flows'
+  progress under `--concurrency > 1`. The per-flow progress task is created only after the
+  semaphore is acquired (not upfront for every flow), so the default case's progress display is
+  pixel-for-pixel the same as before — tasks appear one at a time, in order.

@@ -243,8 +243,18 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
    store, a pixel-diff algorithm, a new CLI flag/exit-code contract) and remains unstarted.
    Flagged as the most differentiated addition for a docs pipeline specifically — good next
    candidate.
-8. **Parallel flow execution** — `cli.py` runs flows serially with a fresh event loop each; one
-   browser + bounded `asyncio.gather` over contexts would cut a multi-flow build several-fold.
+8. **Parallel flow execution** *(shipped 2026-08-24)* — new `screenwright run --concurrency N`
+   (default 1, i.e. today's sequential behavior unless opted into). Implementation differs from
+   the original framing ("one browser + bounded asyncio.gather over contexts") — kept each
+   flow's own independent `run_flow()` browser instance (unchanged) and instead restructured
+   `cli.py run` from "one `asyncio.run()` call per flow in a sync loop" to a single
+   `asyncio.run()` wrapping an `asyncio.Semaphore`-bounded `asyncio.gather` over all flows;
+   `describe()` (synchronous, vendor SDK clients) now runs via `asyncio.to_thread()` so it
+   doesn't block other flows under concurrency > 1. The per-flow Rich progress task is created
+   only after the semaphore is acquired, not upfront for every flow, so `--concurrency 1`'s
+   progress display is pixel-for-pixel identical to before this option existed — verified with a
+   parametrized test running the same 2-flow config at concurrency 1 and 2. 3 new tests.
+   README/ARCHITECTURE/wiki updated.
 9. **PDF export** *(shipped 2026-08-24)* / HAR capture (not done). `CaptureStep.pdf` calls
    `page.pdf()` — Chromium-only, whole-page like `accessibility_snapshot` (not scoped to
    `selector`, same underlying reason: not available on the `ElementHandle` this step's
