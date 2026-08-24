@@ -101,6 +101,53 @@ def test_run_reports_schema_violations_instead_of_a_raw_traceback(tmp_path):
     assert isinstance(result.exception, SystemExit)
 
 
+def test_flows_lists_each_flow_with_step_and_capture_counts(tmp_path):
+    toml_path = tmp_path / "config.toml"
+    toml_path.write_text(
+        """
+        [[flows]]
+        name = "homepage"
+
+          [[flows.steps]]
+          action = "navigate"
+          url = "/"
+
+          [[flows.steps]]
+          action = "capture"
+          name = "homepage-full"
+
+          [[flows.steps]]
+          action = "capture"
+          name = "homepage-hero"
+
+        [[flows]]
+        name = "login"
+
+          [[flows.steps]]
+          action = "navigate"
+          url = "/login"
+        """
+    )
+
+    result = runner.invoke(app, ["flows", str(toml_path)])
+
+    assert result.exit_code == 0
+    assert "homepage" in result.output
+    assert "3 steps, 2 capture(s)" in result.output
+    assert "login" in result.output
+    assert "1 steps, 0 capture(s)" in result.output
+
+
+def test_flows_reports_no_flows_defined(tmp_path):
+    toml_path = tmp_path / "config.toml"
+    toml_path.write_text("")
+
+    result = runner.invoke(app, ["flows", str(toml_path)])
+
+    assert result.exit_code == 0
+    assert "No flows defined" in result.output
+
+
 def test_flows_reports_toml_syntax_errors_instead_of_a_raw_traceback(tmp_path):
     toml_path = tmp_path / "config.toml"
     toml_path.write_text("not [valid toml at all")

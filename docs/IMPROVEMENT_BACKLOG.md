@@ -194,10 +194,19 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       explicit-path/env-var/neither precedence, and `run_flow_tool`'s flow-not-found error path
       (asserts the error lists available flow names, so an agent can self-correct on the next
       call). All covered as of 2026-08-24 — MCP server test-coverage gap fully closed.
-- [ ] No test covers a flow whose step fails mid-way (#1) or a `describe()` failure mid-run (#5).
-- [ ] `cli.py`: `run`'s config-not-found/flow-not-found/empty-flows paths and `validate`'s
-      success/error paths now covered (2026-08-24, `tests/test_cli_validate.py`). Still
-      untested: `flows` command's happy path, `run --output` override.
+- [x] No test covers a flow whose step fails mid-way (#1) or a `describe()` failure mid-run (#5).
+      *(this was already stale by the time it was next reviewed — both landed alongside the #1/#5
+      fixes themselves: `test_run_flow_step_failure_returns_partial_result_not_exception`,
+      `test_run_flow_with_recording_finalizes_video_on_step_failure` in `tests/test_capture.py`,
+      and `test_run_continues_past_a_single_describe_failure` in `tests/test_cli.py`.)*
+- [x] `cli.py`: `run`'s config-not-found/flow-not-found/empty-flows paths and `validate`'s
+      success/error paths now covered (2026-08-24, `tests/test_cli_validate.py`).
+      *(fully closed 2026-08-24, later pass: `run --output` override was already covered by
+      `test_run_completes_all_flows_at_various_concurrency` and the `--check` tests, both of
+      which pass `--output`; `flows`' happy path was the one real gap — closed with
+      `test_flows_lists_each_flow_with_step_and_capture_counts` and
+      `test_flows_reports_no_flows_defined` in `tests/test_cli_validate.py`, both
+      non-integration-marked since `flows` never launches a browser.)*
 - [ ] All of `tests/test_capture.py` is `@pytest.mark.integration` (still true — capture always
       needs a browser). `tests/test_cli_validate.py` is the first non-integration-marked test
       file (2026-08-24) — config validation never touches a browser, so
