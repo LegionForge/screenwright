@@ -22,6 +22,12 @@ A focused documentation screenshot pipeline with an MCP server interface, built 
 
 See [DECISIONS.md](DECISIONS.md) for a full survey of existing tools and the design rationale.
 
+**Further docs:** [Architecture](docs/ARCHITECTURE.md) (module map + diagrams) ·
+[MCP Tools Reference](docs/MCP_TOOLS.md) (for agents/clients) ·
+[Python API Reference](docs/API_REFERENCE.md) (for library use) ·
+[Wiki](https://github.com/LegionForge/screenwright/wiki) ·
+[Code tour](.tours/getting-started.tour) (open with the [CodeTour extension](https://marketplace.visualstudio.com/items?itemName=vsls-contrib.codetour))
+
 ---
 
 ## Installation
