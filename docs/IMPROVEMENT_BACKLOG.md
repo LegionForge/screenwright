@@ -889,6 +889,18 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       individually, since all four touch overlapping lines in the same two files and would have
       produced the same conflict cascade #10 did — closed all four with an explanatory comment.
       1 PR remains open: `mcp` (#6), still deliberately unmerged.)*
+- [x] **#50 [low, stale docs, found 2026-08-25 by fresh review] README's MCP Tools table was
+      missing `run_flow_tool`'s `output_dir` param** — `output_dir` has been a real, documented
+      parameter on `run_flow_tool` since `#43`'s permissions-hardening work needed to distinguish
+      "caller passed an explicit output directory" from "fell back to the shared default," but
+      the one-line tool-summary table in `README.md`'s "MCP Tools" section was never updated to
+      list it (the detailed per-tool reference in `docs/MCP_TOOLS.md` already had it correctly —
+      only the abbreviated summary table drifted). Found by cross-checking every row of that
+      table against the actual function signatures in `mcp_server.py`, the same discipline this
+      session applies before writing any doc claim about behavior. *(fixed 2026-08-25: added
+      `output_dir?` to `run_flow_tool`'s signature string in `README.md`; the wiki's
+      `MCP-Client-Setup.md` had the identical stale row and got the same fix. No code changed, so
+      no new test — verified by re-reading the actual signature, not by running anything.)*
 
 ## Test coverage gaps
 

@@ -278,7 +278,7 @@ does — check your client's current docs if one of the snippets above doesn't c
 |------|-------------|
 | `capture_url(url, name, selector?, output_dir?, wait_until?, timeout_ms?, viewport_width?, viewport_height?, animations?, mask?, mask_color?)` | Capture full page or element at a URL |
 | `capture_element(url, selector, name, output_dir?, wait_until?, timeout_ms?, viewport_width?, viewport_height?, animations?, mask?, mask_color?)` | Capture a specific DOM element |
-| `run_flow_tool(flow_name, config_path?, vision_describe?)` | Execute a named flow from the loaded config. `vision_describe=true` also describes each capture and writes `.json` sidecars, same as the CLI |
+| `run_flow_tool(flow_name, config_path?, output_dir?, vision_describe?)` | Execute a named flow from the loaded config. `vision_describe=true` also describes each capture and writes `.json` sidecars, same as the CLI |
 | `list_flows(config_path?)` | List available flow names |
 | `describe_screenshot(screenshot_path, provider?, model?, structured_metadata?, prompt?)` | Describe a PNG using the vision model |
 | `describe_flow(flow_name, config_path?, output_dir?)` | Get a flow's markdown index + every capture's metadata in one call, instead of one `describe_screenshot` round-trip per screenshot |
