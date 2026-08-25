@@ -807,6 +807,16 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       left open for a future iteration to review individually rather than batch-approving —
       each deserves the same "does this actually change what CI already validated" scrutiny #11
       got, not a rubber stamp because the badge is green.
+- [x] **Dependabot batch, second pick (2026-08-25): merged #12** (`anthropic` floor bump,
+      `>=0.30.0,<2.0.0` → `>=1.0.0,<2.0.0`) — the *safest possible* kind of bump: it doesn't even
+      change the effective allowed range, since the upper bound (`<2.0.0`) was already there and
+      `pyproject.toml`'s own comment already documented that "anthropic 1.0.0 (just released) was
+      checked structurally compatible before setting its bound at `<2.0.0`" when that bound was
+      originally written. Confirmed locally before merging (not just trusting green CI): the dev
+      venv already had `anthropic==1.0.0` installed and the full suite already passed with it.
+      12 PRs remain open (pydantic/pytest/pytest-asyncio/openai/ollama/rich/playwright floor
+      bumps, 4 `github-actions` major bumps); `mcp` (#6) stays deliberately unmerged per its
+      standing comment.
 
 ## Test coverage gaps
 
