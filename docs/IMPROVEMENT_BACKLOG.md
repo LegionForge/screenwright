@@ -858,6 +858,15 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       verification was already done, and closed #10 with an explanatory comment rather than
       leaving a stale conflicting PR open. 7 PRs remain open (rich/playwright floor bumps, 4
       `github-actions` major bumps); `mcp` (#6) still deliberately unmerged.
+- [x] **Dependabot batch, seventh pick (2026-08-25): merged #15 + #13** (`rich` `>=13.0.0` →
+      `>=15.0.0`, `playwright` `>=1.40.0` → `>=1.62.0`) — both already installed at exactly the
+      target floor and already exercised all session: `cli.py` only uses `rich`'s most stable
+      surface (`Console`, `Progress`, `SpinnerColumn`, `TextColumn`), and playwright's own
+      integration test suite (`tests/test_capture.py`, launches real Chromium) already passed
+      against `1.62.0` — the strongest possible verification for a browser-automation library
+      bump, since it actually exercises real capture/video/HAR behavior rather than just
+      importing the package. 5 PRs remain open (4 `github-actions` major bumps); `mcp` (#6)
+      still deliberately unmerged.
 
 ## Test coverage gaps
 
