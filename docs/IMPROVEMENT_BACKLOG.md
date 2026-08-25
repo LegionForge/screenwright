@@ -668,6 +668,25 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       `wait()` were actually called, not just that a `RuntimeError` was raised.
       `docs/ARCHITECTURE.md` updated; no public API surface changed, so README/MCP_TOOLS/wiki
       untouched.)*
+- [x] **#43 [high, security, found 2026-08-24 by fresh review] `_DEFAULT_OUTPUT` was created
+      with normal `mkdir()` permissions in the shared system temp directory** — a fixed,
+      predictable path (`/tmp/screenwright-output`) any local user can see, used whenever
+      `capture_url`/`capture_element`/`run_flow_tool` are called without an explicit
+      `output_dir`. Left at default permissions, captured screenshots (potentially showing
+      sensitive UI — admin panels, unmasked internal dashboards) were readable by every other
+      local user on a shared machine, and a symlink pre-planted at that exact path could
+      redirect writes to an attacker-chosen location. *(fixed 2026-08-24: added
+      `_ensure_private_default_output_dir()` — refuses to proceed if the path is a symlink, then
+      creates/`chmod`s it to `0700` — called only when the resolved output root is
+      `_DEFAULT_OUTPUT` itself; an explicit `output_dir` the caller chose is left untouched, since
+      forcing its permissions could break a deliberately shared/committed directory like
+      `docs/screenshots`. Wired into all three MCP write paths (`capture_url`, `capture_element`,
+      `run_flow_tool`); `describe_flow` is read-only and needs no change. 4 new tests: creation
+      with `0700`, tightening an already-existing dir with looser permissions (covers a
+      directory left over from before this fix shipped), rejecting a pre-planted symlink, and an
+      end-to-end proof that `capture_url` itself actually calls the helper (via a monkeypatched
+      `_DEFAULT_OUTPUT` pointing at a temp path, not the real shared system temp dir).
+      `docs/MCP_TOOLS.md`/`docs/ARCHITECTURE.md` updated; wiki synced.)*
 
 ## Test coverage gaps
 

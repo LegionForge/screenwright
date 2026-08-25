@@ -300,3 +300,18 @@ sequenceDiagram
   the test proving this — `test_convert_to_mp4_kills_hung_ffmpeg_instead_of_hanging_forever` —
   can use a fake never-resolving subprocess and a near-zero timeout instead of actually waiting
   5 minutes.
+- **`_DEFAULT_OUTPUT` (the fallback when no `output_dir` is given) was created with normal
+  `mkdir()` permissions in the shared system temp directory.** It's a fixed, predictable path
+  (`/tmp/screenwright-output` on macOS/Linux) — any local user can see it, and left at default
+  permissions, screenshots written there (potentially showing sensitive UI: admin panels,
+  unmasked internal dashboards) were readable by every other local user on a shared machine. A
+  symlink pre-planted at that exact path could also redirect writes somewhere unintended. Fixed
+  by `_ensure_private_default_output_dir()`, called only when the resolved output root is
+  `_DEFAULT_OUTPUT` itself (an explicit `output_dir` the caller chose — e.g. `docs/screenshots`,
+  meant to be committed and shared — is left untouched): refuses to proceed if the path is a
+  symlink, then creates/`chmod`s it to `0700`. Applied at all three MCP write paths
+  (`capture_url`, `capture_element`, `run_flow_tool`) before any capture happens; `describe_flow`
+  is read-only and needs no change. A flow's own subdirectory underneath (created by `run_flow`'s
+  existing `flow_dir.mkdir(parents=True, exist_ok=True)`) doesn't need its own permissions
+  tightened — the `0700` parent already blocks traversal by any other user regardless of the
+  child's own mode.

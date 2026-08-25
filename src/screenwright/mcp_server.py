@@ -40,6 +40,31 @@ def _looks_like_png(path: Path) -> bool:
         return False
 
 
+def _ensure_private_default_output_dir(path: Path) -> None:
+    """Create/lock down `_DEFAULT_OUTPUT` (only) with owner-only (0700) permissions.
+
+    `_DEFAULT_OUTPUT` lives in the system temp directory (e.g.
+    `/tmp/screenwright-output`) — a fixed, predictable path any local user
+    can see. Left at the default `mkdir()` permissions, captures written
+    there (potentially showing sensitive UI: admin panels, unmasked internal
+    dashboards) are readable by every other local user on a shared machine,
+    and a symlink pre-planted at that exact path could redirect writes
+    somewhere the caller never intended. Only ever called for
+    `_DEFAULT_OUTPUT` itself — an explicit `output_dir` the caller chose
+    (e.g. `docs/screenshots`, meant to be committed and shared) is left
+    alone, since forcing its permissions could break that deliberate use.
+    """
+    if path.is_symlink():
+        raise RuntimeError(
+            f"Refusing to write through {path}: it's a symlink, not a real directory. "
+            "This is the shared default output directory in the system temp dir — a "
+            "symlink there could be a pre-planted attack redirecting captures "
+            "somewhere unintended. Pass an explicit output_dir instead."
+        )
+    path.mkdir(mode=0o700, exist_ok=True)
+    os.chmod(path, 0o700)
+
+
 def _resolve_config(config_path: Optional[str]) -> ScreenwrightConfig:
     path = config_path or os.environ.get("SCREENWRIGHT_CONFIG")
     if path:
@@ -123,7 +148,10 @@ async def capture_url(
         Absolute path to the saved PNG file.
     """
     out_root = Path(output_dir) if output_dir else _DEFAULT_OUTPUT
-    out_root.mkdir(parents=True, exist_ok=True)
+    if out_root == _DEFAULT_OUTPUT:
+        _ensure_private_default_output_dir(out_root)
+    else:
+        out_root.mkdir(parents=True, exist_ok=True)
     out_path = _resolve_capture_path(out_root, name)
 
     saved = await capture_single_url(
@@ -181,7 +209,10 @@ async def capture_element(
         Absolute path to the saved PNG file.
     """
     out_root = Path(output_dir) if output_dir else _DEFAULT_OUTPUT
-    out_root.mkdir(parents=True, exist_ok=True)
+    if out_root == _DEFAULT_OUTPUT:
+        _ensure_private_default_output_dir(out_root)
+    else:
+        out_root.mkdir(parents=True, exist_ok=True)
     out_path = _resolve_capture_path(out_root, name)
 
     saved = await capture_single_url(
@@ -240,6 +271,8 @@ async def run_flow_tool(
         raise ValueError(f"Flow {flow_name!r} not found. Available: {available}")
 
     out_root = _resolve_output(cfg, output_dir)
+    if out_root == _DEFAULT_OUTPUT:
+        _ensure_private_default_output_dir(out_root)
     result: FlowResult = await run_flow(flow_def, cfg, out_root)
 
     if vision_describe and result.captures:

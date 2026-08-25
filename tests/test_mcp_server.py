@@ -7,6 +7,7 @@ import pytest
 from screenwright.config import ScreenwrightConfig
 from screenwright.mcp_server import (
     _DEFAULT_OUTPUT,
+    _ensure_private_default_output_dir,
     _resolve_capture_path,
     _resolve_config,
     _resolve_output,
@@ -54,6 +55,61 @@ def test_resolve_capture_path_rejects_traversal(tmp_path, malicious_name):
 def test_resolve_capture_path_stays_inside_output_root(tmp_path):
     result = _resolve_capture_path(tmp_path, "safe-name")
     assert Path(result).resolve().is_relative_to(tmp_path.resolve())
+
+
+def test_ensure_private_default_output_dir_creates_owner_only(tmp_path):
+    # _DEFAULT_OUTPUT lives in the shared system temp dir at a fixed,
+    # predictable path — other local users can see it, and a default
+    # mkdir() leaves it group/other-readable. Screenshots captured there
+    # can show sensitive UI, so this must actually restrict permissions,
+    # not just create the directory.
+    target = tmp_path / "screenwright-output"
+    _ensure_private_default_output_dir(target)
+    assert target.is_dir()
+    assert (target.stat().st_mode & 0o777) == 0o700
+
+
+def test_ensure_private_default_output_dir_tightens_existing_loose_permissions(tmp_path):
+    # A directory created by a version of screenwright before this fix
+    # shipped (or by anything else) could already exist with looser
+    # permissions — this must re-tighten it on every call, not just on
+    # first creation.
+    target = tmp_path / "screenwright-output"
+    target.mkdir(mode=0o755)
+    assert (target.stat().st_mode & 0o777) != 0o700
+
+    _ensure_private_default_output_dir(target)
+
+    assert (target.stat().st_mode & 0o777) == 0o700
+
+
+def test_ensure_private_default_output_dir_rejects_symlink(tmp_path):
+    # A symlink pre-planted at the shared, predictable _DEFAULT_OUTPUT path
+    # could redirect writes to an attacker-chosen location — refuse rather
+    # than silently following it.
+    real_dir = tmp_path / "elsewhere"
+    real_dir.mkdir()
+    target = tmp_path / "screenwright-output"
+    target.symlink_to(real_dir)
+
+    with pytest.raises(RuntimeError, match="symlink"):
+        _ensure_private_default_output_dir(target)
+
+
+def test_capture_url_locks_down_default_output_dir_permissions(tmp_path, monkeypatch):
+    # Proves capture_url actually calls _ensure_private_default_output_dir
+    # when output_dir is omitted (not just that the helper works in
+    # isolation) — monkeypatches _DEFAULT_OUTPUT itself so this doesn't
+    # touch the real shared system temp directory.
+    import asyncio
+
+    fake_default = tmp_path / "screenwright-output"
+    monkeypatch.setattr("screenwright.mcp_server._DEFAULT_OUTPUT", fake_default)
+
+    url = _write_page(tmp_path)
+    asyncio.run(capture_url(url, "homepage"))
+
+    assert (fake_default.stat().st_mode & 0o777) == 0o700
 
 
 @pytest.mark.integration

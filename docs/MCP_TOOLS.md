@@ -37,7 +37,7 @@ Navigate to a URL and capture a screenshot. No config file needed.
 | `url` | string | yes | Full URL to navigate to |
 | `name` | string | yes | Filename stem for the PNG (no extension) |
 | `selector` | string | no | CSS selector — captures only that element instead of full page |
-| `output_dir` | string | no | Where to save the PNG. Defaults to a temp directory |
+| `output_dir` | string | no | Where to save the PNG. Defaults to a temp directory, created with owner-only (0700) permissions since it's at a fixed, predictable path other local users can see |
 | `wait_until` | `"load" \| "domcontentloaded" \| "networkidle" \| "commit"` | no | Default `"load"`. Use `"networkidle"` cautiously — a page with a persistent websocket/SSE connection never goes network-idle and hangs until `timeout_ms` |
 | `timeout_ms` | int | no | Navigation timeout in milliseconds. Default `30000` |
 | `viewport_width` | int | no | Default `1280` — e.g. `390` for a mobile-sized capture |
@@ -81,7 +81,7 @@ Execute a named flow from a TOML config — the multi-step, potentially video-re
 |---|---|---|---|
 | `flow_name` | string | yes | Name of the flow to run (must exist in the config) |
 | `config_path` | string | no | Path to TOML config. Falls back to `SCREENWRIGHT_CONFIG` |
-| `output_dir` | string | no | Override the config's `output_dir` |
+| `output_dir` | string | no | Override the config's `output_dir`. When neither this nor the config's `output_dir` is set, falls back to the same owner-only-permissions temp directory `capture_url`/`capture_element` use |
 | `vision_describe` | bool | no | Default `false`. When true, describes each capture with the config's vision provider and writes `{name}.json` sidecars (+ regenerates `index.md`) — the same auto-describe step `cli.py`'s `run` does. Without this, `describe_flow` afterward has nothing to bundle unless you call `describe_screenshot` per capture yourself; see [Error handling for agents](#error-handling-for-agents) below |
 
 **Returns:** a dict:
