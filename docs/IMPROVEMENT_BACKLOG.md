@@ -824,6 +824,15 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       without issue." Confirmed locally before merging: the dev venv already had
       `openai==3.3.1` installed and the full suite already passed with it. 11 PRs remain open;
       `mcp` (#6) still deliberately unmerged.
+- [x] **Dependabot batch, fourth pick (2026-08-25): merged #8** (`ollama` floor bump,
+      `>=0.1.0` → `>=0.6.2`) — no upper bound to worry about (unlike anthropic/openai), and
+      `0.6.2` is literally the exact version this session already deep-verified: the "Test
+      coverage gaps" section above records `test_ollama_response_shape_matches_our_assumptions`
+      as a dedicated structural guard written specifically against the installed `0.6.2` SDK's
+      `ChatResponse`/`Message` shape. Confirmed locally before merging: already installed,
+      full suite already passed with it. 10 PRs remain open (pydantic/pytest/pytest-asyncio/
+      rich/playwright floor bumps, 4 `github-actions` major bumps); `mcp` (#6) still
+      deliberately unmerged.
 
 ## Test coverage gaps
 
