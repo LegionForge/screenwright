@@ -5,6 +5,7 @@ from pathlib import Path
 
 from screenwright.capture import CaptureResult, FlowResult
 from screenwright.output import (
+    _atomic_write_text,
     _escape_markdown_cell,
     save_metadata,
     write_flow_output,
@@ -18,6 +19,42 @@ def _make_capture(tmp_path: Path, flow_name: str, name: str, metadata=None) -> C
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(b"fake-png-bytes")
     return CaptureResult(flow_name=flow_name, capture_name=name, path=path, metadata=metadata)
+
+
+def test_atomic_write_text_writes_content(tmp_path):
+    target = tmp_path / "out.txt"
+    _atomic_write_text(target, "hello")
+    assert target.read_text() == "hello"
+
+
+def test_atomic_write_text_leaves_no_stray_temp_file(tmp_path):
+    target = tmp_path / "out.txt"
+    _atomic_write_text(target, "hello")
+    leftovers = [p for p in tmp_path.iterdir() if p != target]
+    assert leftovers == []
+
+
+def test_atomic_write_text_preserves_old_content_on_failure(tmp_path, monkeypatch):
+    # A process killed mid-write (or any failure before the atomic replace)
+    # must never leave the real target file partially overwritten — the old
+    # content (or nothing, if it didn't exist yet) must still be there,
+    # exactly like before the call started.
+    target = tmp_path / "out.txt"
+    target.write_text("original content")
+
+    def broken_replace(_src, _dst):
+        raise OSError("simulated failure during os.replace")
+
+    monkeypatch.setattr("screenwright.output.os.replace", broken_replace)
+
+    try:
+        _atomic_write_text(target, "new content that should never land")
+    except OSError:
+        pass
+
+    assert target.read_text() == "original content"
+    leftovers = [p for p in tmp_path.iterdir() if p != target]
+    assert leftovers == []
 
 
 def test_save_metadata_writes_json_sidecar(tmp_path):

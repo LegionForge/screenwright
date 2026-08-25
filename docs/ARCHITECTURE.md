@@ -354,3 +354,15 @@ sequenceDiagram
   `index.md`'s own read) and falling back to `None`/`metadata: null` — matching the contract the
   docstring already claimed, and the same "one bad artifact shouldn't sink the whole call"
   discipline `run_flow_tool`'s per-capture `vision_describe` failures already follow.
+- **`output.py`'s writes (`.json` sidecars, `index.md`, root `README.md`) weren't atomic — the
+  actual source of the corruption #54's read side now tolerates.** A plain `Path.write_text()`
+  truncates the target file before writing the new content, so a process killed mid-write (the
+  MCP server terminated, a crash, a disk-full error partway through) can leave a genuinely
+  corrupted file on disk — not just a missing one. Tolerating that on read (#54) is necessary
+  but not sufficient; preventing it is cheap where it's this easy. Added `_atomic_write_text()`:
+  writes to a sibling temp file (`.{name}.tmp{pid}`) in the same directory, then `os.replace()`s
+  it into place — atomic on POSIX and Windows within the same filesystem, guaranteed by the
+  same-directory temp file. On any failure before the replace, the original file (if any) is
+  left completely untouched and the temp file is cleaned up rather than orphaned. All three
+  write call sites (`save_metadata`, `write_flow_output`'s `index.md`, `write_root_readme`'s
+  `README.md`) now go through it.

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from pathlib import Path
 
@@ -8,6 +9,28 @@ from screenwright.capture import CaptureResult, FlowResult
 
 _HTML_TAG_RE = re.compile(r"<[^>]*>")
 _MAX_DESCRIPTION_LEN = 500
+
+
+def _atomic_write_text(path: Path, content: str, encoding: str = "utf-8") -> None:
+    """Write text to `path` atomically — either the old content or the new, never a partial file.
+
+    A process killed mid-write (the MCP server terminated, a crash) with a
+    plain `Path.write_text()` can leave a truncated file on disk — the exact
+    corruption `describe_flow` now tolerates on read (see finding #54), but
+    preventing it is cheap and worth doing where it's this easy. Writes to a
+    sibling temp file first and `os.replace()`s it into place — `replace()`
+    is atomic on POSIX and Windows *within the same filesystem*, which a
+    same-directory temp file guarantees. On any failure before the replace,
+    the original file (if any) is left untouched, and the temp file is
+    cleaned up rather than orphaned.
+    """
+    tmp_path = path.with_name(f".{path.name}.tmp{os.getpid()}")
+    try:
+        tmp_path.write_text(content, encoding=encoding)
+        os.replace(tmp_path, path)
+    except BaseException:
+        tmp_path.unlink(missing_ok=True)
+        raise
 
 
 def _escape_markdown_cell(text: str) -> str:
@@ -34,9 +57,9 @@ def save_metadata(capture: CaptureResult, output_root: Path) -> Path | None:
     if capture.metadata is None:
         return None
     json_path = capture.path.with_suffix(".json")
-    json_path.write_text(
+    _atomic_write_text(
+        json_path,
         json.dumps(capture.metadata.model_dump(), indent=2, ensure_ascii=False),
-        encoding="utf-8",
     )
     return json_path
 
@@ -108,11 +131,11 @@ def write_flow_output(flow_result: FlowResult, output_root: Path) -> Path:
             save_metadata(capture, output_root)
 
     index_path = flow_dir / "index.md"
-    index_path.write_text(_flow_index_md(flow_result), encoding="utf-8")
+    _atomic_write_text(index_path, _flow_index_md(flow_result))
     return index_path
 
 
 def write_root_readme(flow_results: list[FlowResult], output_root: Path) -> Path:
     readme_path = output_root / "README.md"
-    readme_path.write_text(_root_readme_md(flow_results), encoding="utf-8")
+    _atomic_write_text(readme_path, _root_readme_md(flow_results))
     return readme_path

@@ -960,6 +960,26 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       malformed `.json` file (not a mock) to prove the actual `json.loads()` failure path is
       caught. `docs/MCP_TOOLS.md`/`docs/ARCHITECTURE.md` updated; no public API surface changed,
       so README/wiki untouched.)*
+- [x] **#55 [medium, reliability, found 2026-08-25 by fresh review — direct follow-on to #54]
+      `output.py`'s writes (`.json` sidecars, `index.md`, root `README.md`) weren't atomic — the
+      actual source of the corruption #54's read side now tolerates, not just a hypothetical
+      one** — a plain `Path.write_text()` truncates the target file before writing new content,
+      so a process killed mid-write (the MCP server terminated, a crash, a disk-full error
+      partway through) can leave a genuinely corrupted file on disk, not just a missing one.
+      Tolerating that on read (#54) is necessary but not sufficient; preventing it in the first
+      place is cheap where it's this easy — the same "check for the same class of bug elsewhere"
+      discipline this session applies repeatedly (e.g. #38→#41, #43→#46). *(fixed 2026-08-25:
+      added `_atomic_write_text()` — writes to a sibling temp file (`.{name}.tmp{pid}`) in the
+      same directory, then `os.replace()`s it into place (atomic on POSIX and Windows within the
+      same filesystem, guaranteed by the same-directory temp file); on any failure before the
+      replace, the original file is left untouched and the temp file is cleaned up rather than
+      orphaned. All three write call sites (`save_metadata`, `write_flow_output`'s `index.md`,
+      `write_root_readme`'s `README.md`) now go through it. 3 new tests in `tests/test_output.py`:
+      writes real content, leaves no stray temp file behind on success, and — via a monkeypatched
+      `os.replace` that raises — proves a failure before the replace leaves the *original* file
+      completely untouched (not partially overwritten) and still cleans up the temp file.
+      `docs/ARCHITECTURE.md` updated; no public API surface changed, so README/MCP_TOOLS/wiki
+      untouched.)*
 
 ## Test coverage gaps
 
