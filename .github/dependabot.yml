@@ -1,0 +1,20 @@
+version: 2
+updates:
+  # Python runtime/dev dependencies (pyproject.toml).
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+
+  # GitHub Actions used in this repo's own workflows. Actions here are
+  # pinned to commit SHA, not a floating tag (see ci.yml's header comment
+  # and #15/#48 in docs/IMPROVEMENT_BACKLOG.md) — Dependabot still tracks
+  # and bumps SHA-pinned actions correctly, updating both the hash and the
+  # trailing version comment in the same PR, so pinning doesn't mean losing
+  # update visibility.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10

@@ -775,6 +775,22 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       with no Python surface for `semgrep`/`pytest` to check. No test to add — nothing here is
       exercised by the test suite; `actionlint` is the equivalent verification for this file
       type.)*
+- [x] **#49 [low, reliability, found 2026-08-24 by fresh review — direct follow-on to #48] no
+      `.github/dependabot.yml`** — without it, #48's newly-SHA-pinned `actions/checkout`/
+      `actions/setup-python` would silently go stale forever (a SHA pin has no update mechanism
+      of its own; something has to generate the bump PR), and Python runtime/dev dependencies in
+      `pyproject.toml` had no automated update path either, despite CI's own Dependency
+      Audit/Supply Chain jobs (osv-scanner, socket) already checking whatever versions happen to
+      be pinned at any given time. *(fixed 2026-08-24: added `.github/dependabot.yml` with two
+      `package-ecosystem` entries — `pip` (root directory, weekly) and `github-actions` (root
+      directory, weekly), each capped at `open-pull-requests-limit: 10`. Dependabot updates a
+      SHA-pinned action correctly (bumping both the hash and the trailing version comment in the
+      same PR), so this composes with #48's pinning rather than undoing its benefit. Verified the
+      YAML parses and has the expected two-ecosystem structure via a local `pyyaml` check
+      (installed then uninstalled, matching the install-verify-uninstall pattern already used for
+      `semgrep`) before pushing — no dedicated CLI validator for `dependabot.yml`'s schema is
+      commonly available; GitHub validates it server-side once pushed. No test to add — same
+      reasoning as #48, this isn't exercised by the Python test suite.)*
 
 ## Test coverage gaps
 
