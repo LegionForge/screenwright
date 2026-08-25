@@ -980,6 +980,23 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       completely untouched (not partially overwritten) and still cleans up the temp file.
       `docs/ARCHITECTURE.md` updated; no public API surface changed, so README/MCP_TOOLS/wiki
       untouched.)*
+- [x] **#56 [medium, reliability, found 2026-08-25 by fresh review — direct follow-on to #55]
+      `capture.py`'s `accessibility_snapshot` write had the exact same non-atomic
+      `Path.write_text()` pattern #55 just fixed in `output.py`** — checking for the same class
+      of bug elsewhere (this session's recurring discipline, e.g. #38→#41, #43→#46) turned it up
+      immediately: `{name}.aria.yaml` was written with a plain `write_text()` that truncates the
+      target before the new content lands, the same crash-mid-write corruption risk. *(fixed
+      2026-08-25: moved `atomic_write_text()` out of `output.py` into a new `fs.py` module,
+      specifically so `capture.py` could use it too without creating a circular import —
+      `output.py` already imports `CaptureResult`/`FlowResult` from `capture.py`, so
+      `capture.py` importing a write helper *from* `output.py` would have cycled back.
+      `capture.py`'s accessibility-snapshot write now goes through the shared helper; `output.py`
+      imports it from `fs.py` instead of defining its own copy. Moved `#55`'s three
+      `atomic_write_text` tests into a new `tests/test_fs.py` (matching the module move) plus one
+      new test proving overwrite-with-new-content works correctly on a second call — the existing
+      integration test for accessibility snapshots (`test_run_flow_writes_accessibility_snapshot_when_requested`)
+      already covers the content-level behavior unchanged. `docs/ARCHITECTURE.md`'s module table
+      updated with `fs.py`; no public API surface changed, so README/MCP_TOOLS/wiki untouched.)*
 
 ## Test coverage gaps
 

@@ -40,6 +40,7 @@ flowchart TD
 | `capture.py` | The only module that touches Playwright. `run_flow` drives one `Browser` + (optionally) one recording `BrowserContext` through a flow's steps, closes them, and finalizes video. `capture_single_url` is the one-shot path used by the MCP `capture_url`/`capture_element` tools. |
 | `vision.py` | `describe(image_path, cfg) -> ScreenshotMetadata`. Three private per-provider implementations (`_describe_anthropic`, `_describe_openai`, `_describe_ollama`) share prompt-building (`_build_prompt`) and response-parsing (`_parse_response`, which degrades gracefully to a raw-text description if the model doesn't return valid JSON). |
 | `output.py` | Turns `FlowResult`/`CaptureResult` objects into the on-disk docs structure: `{name}.json` sidecars, `{flow}/index.md`, root `README.md`. |
+| `fs.py` | `atomic_write_text()` — the one shared filesystem primitive, used by `output.py`'s writes and `capture.py`'s accessibility-snapshot write. Its own module (not living in either caller) specifically to avoid a circular import: `output.py` already imports types from `capture.py`, so `capture.py` importing a write helper *from* `output.py` would create a cycle. |
 | `cli.py` | Typer commands (`run`, `flows`) — orchestrates `load_config → run_flow → describe (if enabled) → write_flow_output`, one flow at a time, with a Rich progress display. |
 | `mcp_server.py` | FastMCP server exposing `capture_url`, `capture_element`, `run_flow_tool`, `list_flows`, `describe_flow`, `describe_screenshot` as MCP tools over stdio. Config resolution falls back to `SCREENWRIGHT_CONFIG` env var when a tool call doesn't pass `config_path`. |
 
@@ -359,10 +360,15 @@ sequenceDiagram
   truncates the target file before writing the new content, so a process killed mid-write (the
   MCP server terminated, a crash, a disk-full error partway through) can leave a genuinely
   corrupted file on disk — not just a missing one. Tolerating that on read (#54) is necessary
-  but not sufficient; preventing it is cheap where it's this easy. Added `_atomic_write_text()`:
+  but not sufficient; preventing it is cheap where it's this easy. Added `atomic_write_text()`:
   writes to a sibling temp file (`.{name}.tmp{pid}`) in the same directory, then `os.replace()`s
   it into place — atomic on POSIX and Windows within the same filesystem, guaranteed by the
   same-directory temp file. On any failure before the replace, the original file (if any) is
   left completely untouched and the temp file is cleaned up rather than orphaned. All three
   write call sites (`save_metadata`, `write_flow_output`'s `index.md`, `write_root_readme`'s
-  `README.md`) now go through it.
+  `README.md`) now go through it. **Extended the same day:** `capture.py`'s
+  `accessibility_snapshot` write (`{name}.aria.yaml`) had the exact same non-atomic
+  `Path.write_text()` pattern — checking for the same class of bug elsewhere turned it up
+  immediately. Moved the helper out of `output.py` into a new `fs.py` module specifically so
+  `capture.py` could use it too without creating a circular import (`output.py` already imports
+  types from `capture.py`).

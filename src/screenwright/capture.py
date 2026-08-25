@@ -25,6 +25,7 @@ from screenwright.config import (
     SelectStep,
     WaitStep,
 )
+from screenwright.fs import atomic_write_text
 
 _NAV_MAX_RETRIES = 2
 _NAV_BACKOFF_BASE_SECONDS = 1.0
@@ -323,9 +324,7 @@ async def run_flow(
                         accessibility_path = None
                         if step.accessibility_snapshot:
                             accessibility_path = flow_dir / f"{step.name}{suffix}.aria.yaml"
-                            accessibility_path.write_text(
-                                await page.aria_snapshot(), encoding="utf-8"
-                            )
+                            atomic_write_text(accessibility_path, await page.aria_snapshot())
                         pdf_path = None
                         if step.pdf:
                             pdf_path = flow_dir / f"{step.name}{suffix}.pdf"
