@@ -997,6 +997,26 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       integration test for accessibility snapshots (`test_run_flow_writes_accessibility_snapshot_when_requested`)
       already covers the content-level behavior unchanged. `docs/ARCHITECTURE.md`'s module table
       updated with `fs.py`; no public API surface changed, so README/MCP_TOOLS/wiki untouched.)*
+- [x] **#57 [low, forward-compatibility, found 2026-08-25 by fresh review] `pytest-asyncio`
+      emits a silent `PytestDeprecationWarning` on every test run — `asyncio_default_fixture_loop_scope`
+      was never set** — found by deliberately running the suite with warnings promoted to errors
+      (`python -W error::DeprecationWarning -m pytest`), a check not part of the normal
+      `pytest`/`ruff check`/`ruff format --check` loop this session runs every iteration, so this
+      warning had been silently firing on every single run without ever surfacing: pytest-asyncio
+      1.x's `pytest_configure` unconditionally warns when this ini option is unset, but the
+      warning is emitted before pytest's own warnings-summary capture is active, so it never
+      appeared in the normal `-rw` output either — genuinely invisible under this project's
+      existing verification commands. Confirmed real (not a false alarm from the `-W error` flag
+      itself) by reproducing it as a hard `INTERNALERROR` crash under that exact strict-warnings
+      invocation. *(fixed 2026-08-25: set `asyncio_default_fixture_loop_scope = "function"` in
+      `pyproject.toml`'s `[tool.pytest.ini_options]` — the suite has no async fixtures today
+      (only async test functions), so this has zero current behavioral effect, but it matches the
+      scope pytest-asyncio's own release notes say will become the default in a future release
+      regardless, so setting it now is forward-compatible rather than deferred. Verified the fix
+      by re-running the exact same `-W error::DeprecationWarning` reproduction — no longer
+      crashes. No code in `src/screenwright` changed, so no `pytest`/`ruff`/`semgrep` regression
+      risk beyond the config itself; no new test needed, since this is config-only and the
+      reproduction command itself is the verification.)*
 
 ## Test coverage gaps
 

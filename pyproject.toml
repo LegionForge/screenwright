@@ -60,5 +60,15 @@ ignore = ["E501"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+# No async fixtures exist in this suite today (only async test functions),
+# so this has no current behavioral effect — but pytest-asyncio 1.x warns
+# on every run if left unset (PytestDeprecationWarning, emitted during
+# pytest_configure) and will change its own default to "function" in a
+# future release regardless. Setting it explicitly now matches that
+# incoming default and silences the warning, rather than leaving a
+# deprecation notice that only becomes visible under strict-warnings
+# settings (`python -W error::DeprecationWarning` reproduces it as a hard
+# pytest INTERNALERROR, not just a printed warning).
+asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
 markers = ["integration: tests that require a live browser or network (deselect with -m 'not integration')"]
