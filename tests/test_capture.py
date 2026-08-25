@@ -9,6 +9,7 @@ from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 
 import screenwright.capture as capture_module
 from screenwright.capture import (
+    _convert_to_mp4,
     _goto_with_retry,
     _is_transient_navigation_error,
     _resolve_fill_value,
@@ -1419,6 +1420,54 @@ def test_run_flow_reports_missing_ffmpeg_instead_of_raising(tmp_path, monkeypatc
     assert result.error is not None
     assert "mp4 conversion failed" in result.error
     assert "ffmpeg" in result.error.lower()
+
+
+def test_convert_to_mp4_kills_hung_ffmpeg_instead_of_hanging_forever(tmp_path, monkeypatch):
+    # A malformed .webm or a pathological codec edge case could make ffmpeg
+    # hang indefinitely — proc.communicate() had no timeout, so this would
+    # block the whole run_flow/run_flow_tool call forever and leak the
+    # subprocess. Simulated with a fake process whose communicate() never
+    # resolves, so this test itself doesn't hang: a tiny timeout_seconds
+    # proves the wait_for/kill/wait path actually runs, not just that it's
+    # reachable.
+    import asyncio
+
+    monkeypatch.setattr(capture_module.shutil, "which", lambda _cmd: "/usr/bin/ffmpeg")
+
+    class _HangingProc:
+        def __init__(self):
+            self.killed = False
+            self.waited = False
+            self.returncode = None
+
+        async def communicate(self):
+            await asyncio.sleep(3600)
+            return b"", b""  # pragma: no cover - never reached
+
+        def kill(self):
+            self.killed = True
+
+        async def wait(self):
+            self.waited = True
+            self.returncode = -9
+
+    hanging_proc = _HangingProc()
+
+    async def fake_create_subprocess_exec(*_args, **_kwargs):
+        return hanging_proc
+
+    monkeypatch.setattr(
+        capture_module.asyncio, "create_subprocess_exec", fake_create_subprocess_exec
+    )
+
+    webm_path = tmp_path / "demo.webm"
+    webm_path.write_bytes(b"fake-webm")
+
+    with pytest.raises(RuntimeError, match="timed out"):
+        asyncio.run(_convert_to_mp4(webm_path, timeout_seconds=0.05))
+
+    assert hanging_proc.killed
+    assert hanging_proc.waited
 
 
 def test_run_flow_reports_video_finalize_failure_instead_of_raising(tmp_path, monkeypatch):

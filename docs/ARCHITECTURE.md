@@ -287,3 +287,16 @@ sequenceDiagram
   straight to `_capture_page_or_element` exactly as `CaptureStep` already does. Proven with a
   real behavioral test (masked vs. unmasked capture of the same page produce different bytes),
   not just that the params are accepted.
+- **`_convert_to_mp4`'s ffmpeg subprocess had no timeout.** `proc.communicate()` was awaited
+  directly — a hung/runaway ffmpeg process (a malformed `.webm`, a pathological codec edge case)
+  would block the whole `run_flow`/`run_flow_tool` call forever and leak the subprocess, the
+  same class of failure the browser-close `finally` blocks elsewhere in this file already guard
+  against, just for a different resource. Fixed by wrapping the `communicate()` call in
+  `asyncio.wait_for(..., timeout=_MP4_CONVERSION_TIMEOUT_SECONDS)` (default 300s — generous for
+  any reasonably-sized flow recording) and, on timeout, killing and reaping the process before
+  raising a clear `RuntimeError` — caught by the same try/except around `_convert_to_mp4` that
+  already turns a conversion failure into `result.error` rather than an unhandled exception.
+  `timeout_seconds` is an injectable parameter (not just the module constant) specifically so
+  the test proving this — `test_convert_to_mp4_kills_hung_ffmpeg_instead_of_hanging_forever` —
+  can use a fake never-resolving subprocess and a near-zero timeout instead of actually waiting
+  5 minutes.

@@ -97,7 +97,12 @@ class FfmpegNotFoundError(RuntimeError):
     """Raised when record_mp4 is set but ffmpeg is not on PATH."""
 
 
-async def _convert_to_mp4(webm_path: Path) -> Path:
+_MP4_CONVERSION_TIMEOUT_SECONDS = 300.0
+
+
+async def _convert_to_mp4(
+    webm_path: Path, timeout_seconds: float = _MP4_CONVERSION_TIMEOUT_SECONDS
+) -> Path:
     if shutil.which("ffmpeg") is None:
         raise FfmpegNotFoundError(
             "record_mp4 = true requires ffmpeg on PATH (e.g. `brew install ffmpeg`)."
@@ -116,7 +121,20 @@ async def _convert_to_mp4(webm_path: Path) -> Path:
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
-    _, stderr = await proc.communicate()
+    try:
+        _, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout_seconds)
+    except asyncio.TimeoutError:
+        # A hung/runaway ffmpeg process (a malformed .webm, a pathological
+        # codec edge case) must not be left running — a leaked subprocess —
+        # or block this call forever. Kill and reap it before reporting,
+        # the same "never leave a resource dangling on a failure path"
+        # discipline capture_single_url's browser.close() and run_flow's
+        # finally block already follow for the browser process itself.
+        proc.kill()
+        await proc.wait()
+        raise RuntimeError(
+            f"ffmpeg conversion of {webm_path} timed out after {timeout_seconds}s and was killed."
+        ) from None
     if proc.returncode != 0:
         raise RuntimeError(f"ffmpeg conversion failed: {stderr.decode(errors='replace')}")
     return mp4_path

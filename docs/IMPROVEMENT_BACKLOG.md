@@ -648,6 +648,26 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       #38's pattern for a param that can't be proven via visible pixel difference on an
       already-tiny element capture. `README.md`/`docs/MCP_TOOLS.md`/`docs/ARCHITECTURE.md`
       updated.)*
+- [x] **#42 [high, resource-leak/hang bug, found 2026-08-24 by fresh review] `_convert_to_mp4`'s
+      ffmpeg subprocess had no timeout** — `proc.communicate()` was awaited directly with
+      nothing bounding how long it could run. A hung/runaway ffmpeg process (a malformed
+      `.webm`, a pathological codec edge case — rare but real, ffmpeg has known hang conditions
+      on certain malformed inputs) would block the whole `run_flow`/`run_flow_tool` call forever
+      and leak the subprocess — the same class of failure the browser-close `finally` blocks
+      elsewhere in `capture.py` already guard against, just never closed for this resource.
+      *(fixed 2026-08-24: wrapped `proc.communicate()` in `asyncio.wait_for(...,
+      timeout=_MP4_CONVERSION_TIMEOUT_SECONDS)` (default 300s), and on timeout, `proc.kill()` +
+      `await proc.wait()` (reaping the process, not just killing it) before raising a clear
+      `RuntimeError` — caught by the existing try/except around the `_convert_to_mp4` call site,
+      which already turns a conversion failure into `result.error` rather than propagating an
+      unhandled exception (established by an earlier fix in this same finalize block). Made
+      `timeout_seconds` an injectable parameter (not just the module constant) specifically so
+      the new test, `test_convert_to_mp4_kills_hung_ffmpeg_instead_of_hanging_forever`, can use a
+      fake subprocess whose `communicate()` never resolves plus a near-zero timeout, rather than
+      actually waiting 5 minutes for the real default to fire — and asserts both `kill()` and
+      `wait()` were actually called, not just that a `RuntimeError` was raised.
+      `docs/ARCHITECTURE.md` updated; no public API surface changed, so README/MCP_TOOLS/wiki
+      untouched.)*
 
 ## Test coverage gaps
 
