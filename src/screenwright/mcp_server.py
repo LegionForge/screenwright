@@ -29,6 +29,15 @@ mcp = FastMCP(
 )
 
 _DEFAULT_OUTPUT = Path(tempfile.gettempdir()) / "screenwright-output"
+_PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
+
+
+def _looks_like_png(path: Path) -> bool:
+    try:
+        with path.open("rb") as f:
+            return f.read(len(_PNG_MAGIC)) == _PNG_MAGIC
+    except OSError:
+        return False
 
 
 def _resolve_config(config_path: Optional[str]) -> ScreenwrightConfig:
@@ -343,6 +352,15 @@ async def describe_screenshot(
 
     Returns:
         Description string, or JSON string when structured_metadata is true.
+
+    Raises:
+        FileNotFoundError: screenshot_path doesn't exist.
+        ValueError: the file at screenshot_path isn't a PNG (checked by magic bytes, not
+            extension). screenshot_path can come from an LLM acting on untrusted page
+            content, and this tool base64-encodes the whole file and forwards it to a
+            third-party vision API — without this check, an agent could be tricked (e.g. via
+            a prompt-injection payload on a captured page) into reading and exfiltrating an
+            arbitrary local file (a `.env`, an SSH key) through this tool.
     """
     from screenwright.config import VisionConfig
     from screenwright.vision import describe
@@ -350,6 +368,12 @@ async def describe_screenshot(
     path = Path(screenshot_path)
     if not path.exists():
         raise FileNotFoundError(f"Screenshot not found: {screenshot_path}")
+    if not _looks_like_png(path):
+        raise ValueError(
+            f"{screenshot_path} is not a PNG file (bad magic bytes). describe_screenshot only "
+            "accepts PNGs — refusing to read and forward arbitrary file contents to a vision "
+            "provider."
+        )
 
     vision_cfg_kwargs = {
         "provider": provider,

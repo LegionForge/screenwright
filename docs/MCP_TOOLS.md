@@ -154,9 +154,13 @@ Send an already-captured PNG to a vision model independently of a flow run.
 **Returns:** `string` — JSON-encoded `ScreenshotMetadata` if `structured_metadata=true`, else the
 plain-text description.
 
-**Raises:** `FileNotFoundError` if `screenshot_path` doesn't exist; Pydantic `ValidationError` if
-`provider` is set to a value outside the three above (a real MCP client sees the valid options in
-the tool's schema, so this is a fallback for a client that ignores it).
+**Raises:** `FileNotFoundError` if `screenshot_path` doesn't exist; `ValueError` if the file isn't
+actually a PNG (checked by magic bytes, not extension — `screenshot_path` can come from an LLM
+acting on untrusted page content, and this tool base64-encodes the whole file and forwards it to
+a third-party vision API, so this closes an arbitrary-local-file-read/exfiltration path an
+extension check alone wouldn't); Pydantic `ValidationError` if `provider` is set to a value
+outside the three above (a real MCP client sees the valid options in the tool's schema, so this
+is a fallback for a client that ignores it).
 
 ---
 

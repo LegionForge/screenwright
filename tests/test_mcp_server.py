@@ -348,6 +348,22 @@ def test_describe_screenshot_raises_when_file_missing(tmp_path):
         asyncio.run(describe_screenshot(str(missing)))
 
 
+def test_describe_screenshot_rejects_non_png_content(tmp_path):
+    # screenshot_path can come from an LLM acting on untrusted page content
+    # (a prompt-injection payload on a captured page), and this tool
+    # base64-encodes the whole file and forwards it to a third-party vision
+    # API — checking magic bytes (not just a .png extension, which is
+    # trivial to fake) closes an arbitrary-local-file-read/exfiltration
+    # path through this tool.
+    import asyncio
+
+    not_a_png = tmp_path / "secret.png"
+    not_a_png.write_text("SSH_PRIVATE_KEY=definitely-not-a-png")
+
+    with pytest.raises(ValueError, match="not a PNG"):
+        asyncio.run(describe_screenshot(str(not_a_png)))
+
+
 def test_describe_screenshot_rejects_unknown_provider(tmp_path):
     # provider is typed as Literal["anthropic", "ollama", "openai"] so a real
     # MCP client sees the valid options in the tool's schema; this guards
@@ -359,7 +375,7 @@ def test_describe_screenshot_rejects_unknown_provider(tmp_path):
     from pydantic import ValidationError
 
     png = tmp_path / "shot.png"
-    png.write_bytes(b"fake-png")
+    png.write_bytes(b"\x89PNG\r\n\x1a\n" + b"fake-rest-of-file")
 
     with pytest.raises(ValidationError):
         asyncio.run(describe_screenshot(str(png), provider="bogus"))
@@ -371,7 +387,7 @@ def test_describe_screenshot_returns_structured_json(tmp_path, monkeypatch):
     from screenwright.vision import ScreenshotMetadata
 
     png = tmp_path / "shot.png"
-    png.write_bytes(b"fake-png")
+    png.write_bytes(b"\x89PNG\r\n\x1a\n" + b"fake-rest-of-file")
 
     def fake_describe(image_path, cfg):
         return ScreenshotMetadata(description="A login form", components=["form"])
@@ -391,7 +407,7 @@ def test_describe_screenshot_returns_plain_description(tmp_path, monkeypatch):
     from screenwright.vision import ScreenshotMetadata
 
     png = tmp_path / "shot.png"
-    png.write_bytes(b"fake-png")
+    png.write_bytes(b"\x89PNG\r\n\x1a\n" + b"fake-rest-of-file")
 
     def fake_describe(image_path, cfg):
         return ScreenshotMetadata(description="A login form")
@@ -409,7 +425,7 @@ def test_describe_screenshot_threads_custom_prompt_into_vision_config(tmp_path, 
     from screenwright.vision import ScreenshotMetadata
 
     png = tmp_path / "shot.png"
-    png.write_bytes(b"fake-png")
+    png.write_bytes(b"\x89PNG\r\n\x1a\n" + b"fake-rest-of-file")
 
     captured_prompts = []
 
@@ -435,7 +451,7 @@ def test_describe_screenshot_uses_default_prompt_when_not_given(tmp_path, monkey
     from screenwright.vision import ScreenshotMetadata
 
     png = tmp_path / "shot.png"
-    png.write_bytes(b"fake-png")
+    png.write_bytes(b"\x89PNG\r\n\x1a\n" + b"fake-rest-of-file")
 
     captured_prompts = []
 

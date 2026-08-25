@@ -611,6 +611,25 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       succeeds); `test_describe_screenshot_uses_default_prompt_when_not_given` proves omitting it
       falls back to `VisionConfig().prompt` rather than some other default. `README.md`/
       `docs/MCP_TOOLS.md`/`docs/ARCHITECTURE.md` updated.)*
+- [x] **#40 [high, security, found 2026-08-24 by fresh review] `describe_screenshot` would read
+      and forward the contents of ANY file on disk to a third-party vision API, not just
+      PNGs** — `screenshot_path` is an absolute path supplied by the MCP client, and on this
+      surface an agent's next tool call can be shaped by untrusted page content it just
+      captured (the same threat model `validate_safe_name` already takes seriously for flow/
+      capture names). Nothing stopped `describe_screenshot("/home/project/.env")` or a renamed
+      secrets file — the tool base64-encodes the whole file and ships it to Anthropic/OpenAI/
+      Ollama regardless of actual content, a real arbitrary-file-exfiltration primitive if an
+      agent is manipulated via a prompt-injection payload on a captured page. An extension
+      check (`.png`) alone would be trivial to defeat by renaming the file. *(fixed 2026-08-24:
+      added `_looks_like_png()`, checking the file's first 8 bytes against the real PNG magic
+      number (`\x89PNG\r\n\x1a\n`) before any base64-encoding or provider call — raises
+      `ValueError` on a mismatch. 1 new test,
+      `test_describe_screenshot_rejects_non_png_content`, using a file with a plausible secret
+      payload and a `.png` extension to prove the extension alone wouldn't have caught it.
+      Updated the 5 existing `describe_screenshot` tests that wrote placeholder
+      `b"fake-png"` bytes to include the real magic-number prefix, since they'd otherwise now
+      fail this new check for reasons unrelated to what each test actually verifies.
+      `docs/MCP_TOOLS.md`/`docs/ARCHITECTURE.md` updated.)*
 
 ## Test coverage gaps
 

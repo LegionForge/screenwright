@@ -266,3 +266,14 @@ sequenceDiagram
   constructor call when given, so existing callers see no behavior change and still get
   `VisionConfig`'s own default via Pydantic — passing `prompt=None` explicitly would instead have
   failed validation, since the field is typed `str`, not `str | None`.
+- **`describe_screenshot` would read and forward the contents of any file on disk, not just
+  PNGs, to a third-party vision API.** `screenshot_path` is an absolute path an MCP client
+  passes in — and on this surface, an agent's next tool call can be shaped by untrusted page
+  content it just captured, the same threat model `validate_safe_name` already treats
+  seriously for flow/capture names. Nothing stopped `describe_screenshot("/home/project/.env")` or
+  a similarly renamed secrets file: the tool base64-encodes the whole file and ships it to
+  Anthropic/OpenAI/Ollama regardless of what it actually contains, making this a real
+  arbitrary-file-exfiltration primitive, not just a theoretical one. An extension check
+  (`.png`) would be trivial to defeat by just renaming the file. Fixed by checking the file's
+  first 8 bytes against the real PNG magic number (`\x89PNG\r\n\x1a\n`) and raising `ValueError`
+  if they don't match, before any base64-encoding or provider call happens.
