@@ -221,7 +221,20 @@ async def run_flow(
     flow_dir.mkdir(parents=True, exist_ok=True)
 
     async with async_playwright() as p:
-        browser: Browser = await p.chromium.launch()
+        try:
+            browser: Browser = await p.chromium.launch()
+        except Exception as exc:
+            # The one setup step that used to sit outside the "always
+            # return a FlowResult, never raise" contract every other
+            # failure path in this function already follows (context/page
+            # setup below, step failures, video/HAR finalize, mp4
+            # conversion). A missing/corrupted Chromium install or a
+            # resource-exhausted host would otherwise crash run_flow_tool
+            # with an unhandled exception instead of a clean partial
+            # result — and there's nothing to close here, since launch()
+            # itself never leaves an orphaned process behind on failure.
+            result.error = f"Failed to launch browser: {exc}"
+            return result
 
         viewport = {"width": flow.viewport_width, "height": flow.viewport_height}
         har_path = flow_dir / f"{flow.name}.har" if flow.har else None

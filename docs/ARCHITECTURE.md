@@ -84,6 +84,14 @@ sequenceDiagram
   closed in a `finally` block regardless of where things stopped. `run_flow_tool` surfaces this
   as a `{captures, error, failed_step_index, ...}` dict so an agent driving Screenwright sees a
   partial result it can act on, not a failed tool call or an unhandled exception.
+- **Browser launch itself is now inside that same contract, too.** `p.chromium.launch()` used
+  to sit outside every setup/step/finalize try block in `run_flow` — the one remaining gap in
+  the "never raise" guarantee described above. A missing/corrupted Chromium install or a
+  resource-exhausted host would crash `run_flow_tool` with an unhandled exception instead of the
+  clean partial `FlowResult` every other failure path already returns. Fixed by wrapping the
+  launch call itself and returning early with `result.error` set on failure — there's nothing to
+  close in that case, since Playwright's `launch()` never leaves an orphaned process behind on
+  its own failure.
 - **Auth is session injection, not scripted login.** `Flow.storage_state` loads Playwright's own
   cookie/localStorage export before any step runs — the standard, robust way to capture an
   already-authenticated session for an internal app, instead of re-running a fragile

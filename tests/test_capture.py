@@ -778,6 +778,60 @@ def test_run_flow_with_missing_storage_state_reports_clean_error(tmp_path):
     assert result.captures == []
 
 
+def test_run_flow_reports_browser_launch_failure_instead_of_raising(tmp_path, monkeypatch):
+    # p.chromium.launch() sat outside every other setup/step/finalize try
+    # block in run_flow — a missing/corrupted Chromium install or a
+    # resource-exhausted host would crash run_flow_tool with an unhandled
+    # exception instead of the clean partial FlowResult every other
+    # failure path here already returns. Simulated with a fake
+    # async_playwright whose chromium.launch() raises, since a real
+    # deterministic launch failure isn't reliably producible in CI.
+    class _FakeBrowserType:
+        async def launch(self):
+            raise RuntimeError("simulated: Chromium executable not found")
+
+    class _FakePlaywright:
+        def __init__(self):
+            self.chromium = _FakeBrowserType()
+
+    class _FakePlaywrightContextManager:
+        async def __aenter__(self):
+            return _FakePlaywright()
+
+        async def __aexit__(self, *exc_info):
+            return False
+
+    monkeypatch.setattr(capture_module, "async_playwright", lambda: _FakePlaywrightContextManager())
+
+    toml_path = tmp_path / "config.toml"
+    toml_path.write_text(
+        """
+        [screenwright]
+        base_url = ""
+
+        [[flows]]
+        name = "demo"
+
+          [[flows.steps]]
+          action = "navigate"
+          url = "http://example.invalid"
+        """
+    )
+    cfg = load_config(toml_path)
+    flow = cfg.get_flow("demo")
+    output_root = tmp_path / "output"
+
+    import asyncio
+
+    result = asyncio.run(run_flow(flow, cfg, output_root))
+
+    assert result.error is not None
+    assert "Failed to launch browser" in result.error
+    assert "Chromium executable not found" in result.error
+    assert result.captures == []
+    assert result.video_path is None
+
+
 def test_run_flow_with_malformed_storage_state_reports_clean_error(tmp_path):
     storage_state_path = tmp_path / "state.json"
     storage_state_path.write_text("not valid json at all")

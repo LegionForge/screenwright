@@ -696,6 +696,23 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       of what the rule warns about. Suppressed with an inline `# nosemgrep:
       insecure-file-permissions` plus a comment explaining why, confirmed to still format-check
       clean and to bring the local Semgrep run back to 0 findings before repushing.)*
+- [x] **#44 [high, crash-on-error-path bug, found 2026-08-24 by fresh review] `p.chromium.launch()`
+      sat outside every setup/step/finalize try block in `run_flow`** — the one remaining gap in
+      the "always return a `FlowResult`, never raise" contract every other failure path in this
+      function already follows (context/page setup, step failures, video/HAR finalize, mp4
+      conversion — see findings #1/#2/#37/#42). A missing/corrupted Chromium install or a
+      resource-exhausted host would crash `run_flow_tool` with an unhandled exception, directly
+      contradicting its own docstring ("does not raise for a mid-flow step failure... only for a
+      missing flow name or a config error") — a browser-launch failure is neither of those.
+      *(fixed 2026-08-24: wrapped the launch call in its own try/except that sets
+      `result.error = f"Failed to launch browser: {exc}"` and returns immediately — no
+      `browser.close()` needed in that branch, since Playwright's `launch()` never leaves an
+      orphaned process behind on its own failure, so there's nothing to leak. 1 new test,
+      `test_run_flow_reports_browser_launch_failure_instead_of_raising`, using a fake
+      `async_playwright`/`chromium.launch()` that raises, matching the existing fake-Playwright
+      pattern `test_capture_single_url_closes_browser_even_if_setup_fails` already established —
+      a real deterministic launch failure isn't reliably producible in CI. `docs/ARCHITECTURE.md`
+      updated; no public API surface changed, so README/MCP_TOOLS/wiki untouched.)*
 
 ## Test coverage gaps
 
