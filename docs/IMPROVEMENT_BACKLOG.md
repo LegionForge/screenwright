@@ -916,6 +916,18 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       no further drift — this was the one genuine gap. *(fixed 2026-08-25: added `mask: list[str]
       | None = None, mask_color: str | None = None` to the documented signature in both
       `docs/API_REFERENCE.md` and the wiki. No code changed, so no new test.)*
+- [x] **#52 [low, doc completeness, found 2026-08-25 by fresh review] `VisionConfig.prompt` had
+      no worked example anywhere** — the field itself was documented correctly in README's
+      `[vision]` reference table (a one-line description: "Override the describe prompt sent to
+      the vision model"), and `#39` gave it to `describe_screenshot` on the MCP surface, but
+      neither README's narrative "Vision Model Setup" section nor its wiki twin
+      (`Vision-Providers.md`) — the pages a user actually reads when configuring `[vision]` —
+      ever showed a `prompt = "..."` TOML example, so the feature was easy to miss even though it
+      was fully implemented and tested. *(fixed 2026-08-25: added a "Custom describe prompt"
+      subsection to both README (before "Disable vision entirely") and the wiki (same position)
+      with a concrete example (an accessibility-focused prompt) and a note that
+      `structured_metadata = true` still appends the JSON-structure instruction after a custom
+      prompt, not instead of it. No code changed, so no new test.)*
 
 ## Test coverage gaps
 

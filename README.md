@@ -697,6 +697,23 @@ Moondream2 is the recommended default for air-gapped environments or UIs with se
 
 > **Note:** Moondream2 is a small (~1.6B) model and can return an empty response when asked to follow the structured JSON prompt (`structured_metadata = true`). Screenwright falls back gracefully to an empty description rather than failing the run, but for reliable structured metadata with Moondream, either set `structured_metadata = false` or use a larger local model such as `llava` or `qwen2-vl`.
 
+### Custom describe prompt
+
+Every provider sends a built-in generic prompt ("Describe this UI screenshot for documentation
+purposes.") unless you override it — useful for steering descriptions toward accessibility
+review, a non-English language, or a specific documentation style:
+
+```toml
+[vision]
+provider = "anthropic"
+prompt   = "Focus on accessibility issues: missing labels, low contrast, unclear focus states."
+```
+
+Works with any provider, and with `describe_screenshot`'s own `prompt` argument when calling it
+directly via MCP instead of through a flow's `[vision]` config. When `structured_metadata = true`
+(the default), the JSON-structure instruction is still appended after your prompt — you're
+overriding what the model is asked to *look for*, not the requirement that it respond as JSON.
+
 ### Disable vision entirely
 
 ```toml
