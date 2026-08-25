@@ -161,6 +161,8 @@ async def capture_single_url(
     viewport_width: int = 1280,
     viewport_height: int = 720,
     animations: str = "disabled",
+    mask: list[str] | None = None,
+    mask_color: str | None = None,
 ) -> Path:
     async with async_playwright() as p:
         browser: Browser = await p.chromium.launch()
@@ -170,7 +172,14 @@ async def capture_single_url(
             )
             page.set_default_timeout(timeout_ms)
             await _goto_with_retry(page, url, wait_until)
-            await _capture_page_or_element(page, output_path, selector, animations=animations)
+            await _capture_page_or_element(
+                page,
+                output_path,
+                selector,
+                animations=animations,
+                mask=mask,
+                mask_color=mask_color,
+            )
         finally:
             # A bad selector (or a navigation failure after retries are
             # exhausted) used to skip this close entirely, leaking the

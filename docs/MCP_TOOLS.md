@@ -43,6 +43,8 @@ Navigate to a URL and capture a screenshot. No config file needed.
 | `viewport_width` | int | no | Default `1280` — e.g. `390` for a mobile-sized capture |
 | `viewport_height` | int | no | Default `720` |
 | `animations` | `"disabled" \| "allow"` | no | Default `"disabled"` — freezes CSS animations for a deterministic screenshot |
+| `mask` | list of strings | no | CSS selectors to fill with a solid color before capturing — e.g. a live clock or an avatar. A selector matching nothing is a silent no-op, not an error |
+| `mask_color` | string | no | Override color for masked elements. Playwright's own default is pink (`#FF00FF`), chosen to be unmissable |
 
 **Returns:** `string` — absolute path to the saved PNG.
 
@@ -66,6 +68,8 @@ Same as `capture_url` but `selector` is required — captures one DOM element.
 | `viewport_width` | int | no | Same as `capture_url` |
 | `viewport_height` | int | no | Same as `capture_url` |
 | `animations` | `"disabled" \| "allow"` | no | Same as `capture_url` |
+| `mask` | list of strings | no | Same as `capture_url` |
+| `mask_color` | string | no | Same as `capture_url` |
 
 **Returns:** `string` — absolute path to the saved PNG.
 

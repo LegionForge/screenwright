@@ -516,6 +516,29 @@ def test_capture_url_respects_custom_viewport(tmp_path):
     assert height == 844
 
 
+def test_capture_url_mask_changes_captured_bytes(tmp_path):
+    # capture_single_url's own _capture_page_or_element helper has long
+    # supported mask/mask_color (used by CaptureStep flows), but capture_url
+    # never wired them through — the same class of gap #38 fixed for
+    # wait_until/timeout_ms/viewport_width/viewport_height/animations, just
+    # missed at the time since mask didn't exist yet. Proves a real
+    # behavioral difference (masked capture's bytes differ from an
+    # unmasked one of the same page), not just that the param is accepted.
+    import asyncio
+    import hashlib
+
+    url = _write_page(tmp_path)
+    out_dir = tmp_path / "out"
+
+    unmasked = asyncio.run(capture_url(url, "unmasked", output_dir=str(out_dir)))
+    masked = asyncio.run(capture_url(url, "masked", output_dir=str(out_dir), mask=["#content"]))
+
+    assert (
+        hashlib.sha256(Path(unmasked).read_bytes()).digest()
+        != hashlib.sha256(Path(masked).read_bytes()).digest()
+    )
+
+
 def test_capture_element_accepts_new_capture_params(tmp_path):
     # Same wiring as capture_url, for capture_element. An element-scoped
     # screenshot's own pixel dimensions don't move with viewport_width the
@@ -540,6 +563,8 @@ def test_capture_element_accepts_new_capture_params(tmp_path):
             viewport_width=600,
             viewport_height=400,
             animations="allow",
+            mask=["#content"],
+            mask_color="#000000",
         )
     )
 

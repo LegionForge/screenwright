@@ -277,3 +277,13 @@ sequenceDiagram
   (`.png`) would be trivial to defeat by just renaming the file. Fixed by checking the file's
   first 8 bytes against the real PNG magic number (`\x89PNG\r\n\x1a\n`) and raising `ValueError`
   if they don't match, before any base64-encoding or provider call happens.
+- **`capture_single_url` (the one-shot path behind `capture_url`/`capture_element`) never
+  exposed `mask`/`mask_color`, even though `_capture_page_or_element` — the helper it already
+  calls — has supported both since finding #7.** `CaptureStep`-based flows could mask a live
+  clock or an avatar for a deterministic capture; the MCP one-shot tools had no equivalent, for
+  no reason other than the params never being threaded through when `mask` was added (it
+  post-dated `capture_single_url`'s original signature). Fixed by adding `mask: list[str] |
+  None`/`mask_color: str | None` to `capture_single_url` and both MCP tool signatures, passed
+  straight to `_capture_page_or_element` exactly as `CaptureStep` already does. Proven with a
+  real behavioral test (masked vs. unmasked capture of the same page produce different bytes),
+  not just that the params are accepted.

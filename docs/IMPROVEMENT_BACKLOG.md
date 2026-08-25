@@ -630,6 +630,24 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       `b"fake-png"` bytes to include the real magic-number prefix, since they'd otherwise now
       fail this new check for reasons unrelated to what each test actually verifies.
       `docs/MCP_TOOLS.md`/`docs/ARCHITECTURE.md` updated.)*
+- [x] **#41 [low, small feature gap, found 2026-08-24 by fresh review — same class as #38/#39]
+      `capture_single_url` (the one-shot path behind `capture_url`/`capture_element`) never
+      exposed `mask`/`mask_color`** — `_capture_page_or_element`, the helper `capture_single_url`
+      already calls, has supported both since finding #7's deterministic-capture work, but
+      `capture_single_url`'s own signature never grew the params (it predates `mask` — a
+      threading gap, not a deliberate omission), so `CaptureStep`-based flows could mask a live
+      clock or an avatar for a deterministic capture and the MCP one-shot tools had no
+      equivalent. *(fixed 2026-08-24: added `mask: list[str] | None`/`mask_color: str | None` to
+      `capture_single_url` and to both `capture_url`/`capture_element` MCP tool signatures,
+      passed straight through to `_capture_page_or_element` exactly as `CaptureStep` already
+      does. 2 new tests: `test_capture_url_mask_changes_captured_bytes` proves a real behavioral
+      difference (masked vs. unmasked capture of the same page produce different bytes via a
+      SHA256 comparison — the same strength-of-proof standard #38 set with pixel-dimension
+      checks), not just that the param is accepted; `capture_element`'s existing wiring test
+      extended with `mask`/`mask_color` kwargs to catch a wiring typo via `TypeError`, matching
+      #38's pattern for a param that can't be proven via visible pixel difference on an
+      already-tiny element capture. `README.md`/`docs/MCP_TOOLS.md`/`docs/ARCHITECTURE.md`
+      updated.)*
 
 ## Test coverage gaps
 

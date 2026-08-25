@@ -92,6 +92,8 @@ async def capture_url(
     viewport_width: int = 1280,
     viewport_height: int = 720,
     animations: Literal["disabled", "allow"] = "disabled",
+    mask: Optional[list[str]] = None,
+    mask_color: Optional[str] = None,
 ) -> str:
     """
     Navigate to a URL and capture a screenshot.
@@ -111,6 +113,11 @@ async def capture_url(
         viewport_height: Default 720.
         animations: 'disabled' (default) freezes CSS animations/transitions for a
             deterministic screenshot; 'allow' captures whatever frame is mid-animation.
+        mask: CSS selectors to fill with a solid color before capturing — e.g. a live
+            clock or an avatar — so repeated captures of the same page produce the same
+            pixels. A selector matching nothing is a silent no-op, not an error.
+        mask_color: Override color for masked elements. Playwright's own default is pink
+            (#FF00FF), chosen to be unmissable.
 
     Returns:
         Absolute path to the saved PNG file.
@@ -128,6 +135,8 @@ async def capture_url(
         viewport_width=viewport_width,
         viewport_height=viewport_height,
         animations=animations,
+        mask=mask,
+        mask_color=mask_color,
     )
     return str(saved)
 
@@ -143,6 +152,8 @@ async def capture_element(
     viewport_width: int = 1280,
     viewport_height: int = 720,
     animations: Literal["disabled", "allow"] = "disabled",
+    mask: Optional[list[str]] = None,
+    mask_color: Optional[str] = None,
 ) -> str:
     """
     Navigate to a URL and capture a specific DOM element.
@@ -160,6 +171,11 @@ async def capture_element(
         viewport_height: Default 720.
         animations: 'disabled' (default) freezes CSS animations/transitions for a
             deterministic screenshot; 'allow' captures whatever frame is mid-animation.
+        mask: CSS selectors to fill with a solid color before capturing — e.g. a live
+            clock or an avatar — so repeated captures of the same page produce the same
+            pixels. A selector matching nothing is a silent no-op, not an error.
+        mask_color: Override color for masked elements. Playwright's own default is pink
+            (#FF00FF), chosen to be unmissable.
 
     Returns:
         Absolute path to the saved PNG file.
@@ -177,6 +193,8 @@ async def capture_element(
         viewport_width=viewport_width,
         viewport_height=viewport_height,
         animations=animations,
+        mask=mask,
+        mask_color=mask_color,
     )
     return str(saved)
 
