@@ -817,6 +817,13 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       12 PRs remain open (pydantic/pytest/pytest-asyncio/openai/ollama/rich/playwright floor
       bumps, 4 `github-actions` major bumps); `mcp` (#6) stays deliberately unmerged per its
       standing comment.
+- [x] **Dependabot batch, third pick (2026-08-25): merged #14** (`openai` floor bump,
+      `>=1.0.0,<4.0.0` → `>=3.3.1,<4.0.0`) — same safe class as #12: the upper bound (`<4.0.0`)
+      was already there and unchanged, and `pyproject.toml`'s own comment already documented
+      "openai's bound reflects 3.x, already in active use in this project's own dev/CI installs
+      without issue." Confirmed locally before merging: the dev venv already had
+      `openai==3.3.1` installed and the full suite already passed with it. 11 PRs remain open;
+      `mcp` (#6) still deliberately unmerged.
 
 ## Test coverage gaps
 
