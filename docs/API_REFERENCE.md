@@ -87,7 +87,7 @@ genuine programming error outside those paths, but every documented failure mode
 flow" is designed to return, not raise — callers should check `.error`/`.failed_step_index`
 rather than wrapping every call in try/except.
 
-### `async capture_single_url(url: str, output_path: Path, selector: str | None = None, wait_until: str = "load", timeout_ms: int = 30000, viewport_width: int = 1280, viewport_height: int = 720, animations: str = "disabled") -> Path`
+### `async capture_single_url(url: str, output_path: Path, selector: str | None = None, wait_until: str = "load", timeout_ms: int = 30000, viewport_width: int = 1280, viewport_height: int = 720, animations: str = "disabled", mask: list[str] | None = None, mask_color: str | None = None) -> Path`
 One-shot capture with no flow/config needed. What `capture_url`/`capture_element` call. Unlike
 `run_flow`, this *does* raise on failure (a bad `selector`, a navigation error) — there's no
 `FlowResult` to report a partial outcome on for a single capture. The launched browser is always

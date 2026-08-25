@@ -901,6 +901,21 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       `output_dir?` to `run_flow_tool`'s signature string in `README.md`; the wiki's
       `MCP-Client-Setup.md` had the identical stale row and got the same fix. No code changed, so
       no new test — verified by re-reading the actual signature, not by running anything.)*
+- [x] **#51 [low, stale docs, found 2026-08-25 by fresh review — same class as #50]
+      `docs/API_REFERENCE.md` (and its wiki twin `Python-API-Reference.md`) documented
+      `capture_single_url`'s signature without `mask`/`mask_color`** — those two params were
+      added to the real function in `#41`, but the Python API reference (distinct from
+      `docs/MCP_TOOLS.md`, which #41 *did* update) was missed entirely, since `capture_single_url`
+      isn't an MCP tool itself, just the function the MCP tools call. Found by extending #50's
+      cross-check pattern (documented signature vs. actual source) to every function signature in
+      the Python API reference, not just the MCP tool tables — a full pass through `config.py`'s
+      `ScreenwrightConfig`/`Flow`/`Variant`/`VisionConfig` field tables, the CLI's actual
+      `--help` output vs. README's documented flags, and every other signature in
+      `API_REFERENCE.md` (`run_flow`, `FlowResult`, `CaptureResult`, `describe`,
+      `ScreenshotMetadata`, `write_flow_output`, `write_root_readme`, `save_metadata`) turned up
+      no further drift — this was the one genuine gap. *(fixed 2026-08-25: added `mask: list[str]
+      | None = None, mask_color: str | None = None` to the documented signature in both
+      `docs/API_REFERENCE.md` and the wiki. No code changed, so no new test.)*
 
 ## Test coverage gaps
 
