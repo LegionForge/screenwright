@@ -325,7 +325,7 @@ Set on a flow itself, not on individual steps:
 | `capture` | `name` | `selector`, `accessibility_snapshot` (bool), `pdf` (bool), `variants` (list), `animations` (`"disabled"`/`"allow"`), `mask` (list of selectors), `mask_color` (string) | Screenshot the page or a CSS-selected element. `accessibility_snapshot` also writes the *whole page's* accessibility tree to `{name}.aria.yaml` (always whole-page, not scoped to `selector`). `pdf` also saves the *whole page* as `{name}.pdf` (also whole-page, Chromium-only). `variants` captures this step once per variant instead of once. `animations`/`mask`/`mask_color` control determinism — see [Capture Variants](#capture-variants) and [Deterministic Captures](#deterministic-captures) below. |
 | `fill` | `selector`, `value` | `secret` (bool, default `false`) | Fill an input field. `value` may be `${ENV_VAR}` to pull from the environment instead of a literal — required (not optional) when `secret = true`, so a credential can't accidentally end up committed as plaintext next to the flow that uses it. |
 | `click` | `selector` | — | Click an element |
-| `wait` | `ms` | — | Wait N milliseconds |
+| `wait` | `ms` | — | Wait N milliseconds (max 300000 / 5 minutes — a raw sleep, not a ceiling like `timeout_ms`, so it's bounded to catch a seconds-vs-milliseconds typo rather than hanging the flow for hours) |
 | `hover` | `selector` | — | Hover over an element (triggers `:hover` CSS / `mouseenter`/`mouseover` — capture right after to catch hover states, tooltips, CSS-driven dropdown menus) |
 | `press` | `selector`, `key` | — | Press a keyboard key |
 | `check` | `selector` | `checked` (bool, default `true`) | Check or uncheck a checkbox/radio input |

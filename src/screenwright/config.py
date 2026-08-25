@@ -166,9 +166,25 @@ class ClickStep(BaseModel):
     selector: str
 
 
+_MAX_WAIT_MS = 300_000  # 5 minutes
+
+
 class WaitStep(BaseModel):
     action: Literal["wait"]
-    ms: int
+    ms: int = Field(ge=0, le=_MAX_WAIT_MS)
+    """Milliseconds to sleep. Bounded (5 minutes max) because this is a raw
+    `asyncio.sleep()` — unlike `timeout_ms` elsewhere in a flow (a ceiling
+    Playwright only waits out if something actually hangs), a `wait` step
+    always sleeps its full duration, deterministically, with nothing
+    catching a mistake. The realistic way to trigger an effectively
+    unbounded hang here is a units-confusion typo (seconds typed where
+    milliseconds were meant, e.g. `ms = 60000000` for "one minute") — caught
+    now at config-validation time (`screenwright validate`) instead of
+    silently tying up a browser/agent tool call for hours. A wait longer
+    than 5 minutes almost always means the flow should use
+    `wait_until = "networkidle"` or re-architect around a webhook instead
+    of a static sleep.
+    """
 
 
 class HoverStep(BaseModel):

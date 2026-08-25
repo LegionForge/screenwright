@@ -25,6 +25,27 @@ def test_fill_step_secret_requires_env_ref():
         FillStep(action="fill", selector="#password", value="hunter2", secret=True)
 
 
+def test_wait_step_accepts_a_reasonable_duration():
+    step = WaitStep(action="wait", ms=500)
+    assert step.ms == 500
+
+
+def test_wait_step_rejects_a_units_confusion_sized_duration():
+    # A raw asyncio.sleep() always sleeps its full duration deterministically
+    # — unlike timeout_ms elsewhere, which is only a ceiling Playwright waits
+    # out if something actually hangs. The realistic way to trigger an
+    # effectively unbounded hang here is a seconds-vs-milliseconds typo (e.g.
+    # ms = 60000000 meaning "one minute"), so this must be caught at
+    # config-validation time.
+    with pytest.raises(ValidationError):
+        WaitStep(action="wait", ms=60_000_000)
+
+
+def test_wait_step_rejects_negative_duration():
+    with pytest.raises(ValidationError):
+        WaitStep(action="wait", ms=-1)
+
+
 def test_fill_step_secret_accepts_env_ref():
     step = FillStep(action="fill", selector="#password", value="${DB_PASSWORD}", secret=True)
     assert step.value == "${DB_PASSWORD}"

@@ -742,6 +742,21 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       just a symlink) — the existing symlink/loose-permissions/creation tests from #43 all still
       pass unchanged against the new implementation. `docs/ARCHITECTURE.md` updated; no public
       API surface changed, so README/MCP_TOOLS/wiki untouched beyond the Architecture note.)*
+- [x] **#47 [medium, reliability, found 2026-08-24 by fresh review] `WaitStep.ms` had no upper
+      bound — the last remaining truly-unbounded-hang vector in flow execution** — after #42
+      (ffmpeg subprocess timeout) and #44 (browser launch), a raw `asyncio.sleep(step.ms / 1000)`
+      was the only place left where a flow could hang for an arbitrary duration with nothing
+      catching it: unlike `timeout_ms` elsewhere (a ceiling Playwright only waits out if
+      something actually hangs), a `wait` step always sleeps its full duration deterministically.
+      The realistic trigger is mundane, not adversarial — a seconds-vs-milliseconds units-
+      confusion typo (`ms = 60000000` meaning "one minute") — but the effect is the same class of
+      problem: a browser and an agent's tool call tied up for hours with no way to distinguish it
+      from a legitimate long capture. *(fixed 2026-08-24: bounded to 5 minutes via
+      `ms: int = Field(ge=0, le=300_000)` — caught at config-validation time
+      (`screenwright validate`), the same place duplicate-name/`secret`-without-`${ENV_VAR}`
+      mistakes are already caught, rather than discovered by watching a flow hang. 3 new tests in
+      `tests/test_config.py`: accepts a reasonable duration (regression guard), rejects a
+      units-confusion-sized value, rejects negative. README.md/`docs/ARCHITECTURE.md` updated.)*
 
 ## Test coverage gaps
 

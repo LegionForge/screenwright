@@ -331,3 +331,15 @@ sequenceDiagram
   unlike `os.stat`/`Path.is_dir()`, never follows symlinks) to tell a real pre-existing directory
   (tighten and continue) apart from a symlink or any other non-directory (reject) — closing the
   race instead of just narrowing its window.
+- **`WaitStep.ms` had no upper bound.** It's a raw `asyncio.sleep()`, unlike `timeout_ms`
+  elsewhere in a flow (Playwright's action/navigation timeouts, which are only a ceiling waited
+  out if something actually hangs) — a `wait` step always sleeps its full duration
+  deterministically, with nothing catching a mistake. The realistic way to trigger an
+  effectively unbounded hang here is a seconds-vs-milliseconds units-confusion typo (e.g.
+  `ms = 60000000` meaning "one minute"), tying up a browser and an agent's tool call for hours
+  with no way to distinguish it from a legitimate long-running capture. Bounded to 5 minutes
+  (`ms: int = Field(ge=0, le=300_000)`) — generous for any realistic "wait for something to
+  settle" use case; a wait genuinely needing longer almost always means the flow should use
+  `wait_until = "networkidle"` instead of a static sleep. Caught at config-validation time
+  (`screenwright validate`), the same place duplicate-name/`secret`-without-`${ENV_VAR}`
+  mistakes are already caught.
