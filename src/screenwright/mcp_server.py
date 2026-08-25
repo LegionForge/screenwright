@@ -62,7 +62,11 @@ def _ensure_private_default_output_dir(path: Path) -> None:
             "somewhere unintended. Pass an explicit output_dir instead."
         )
     path.mkdir(mode=0o700, exist_ok=True)
-    os.chmod(path, 0o700)
+    # This rule's default suggestion (0o644) is for *files* world-readable by
+    # default; 0o700 here is the deliberately maximally-restrictive choice
+    # for a *directory* (owner rwx, no group/other access at all) — the
+    # opposite of what the rule is warning about. See the docstring above.
+    os.chmod(path, 0o700)  # nosemgrep: insecure-file-permissions
 
 
 def _resolve_config(config_path: Optional[str]) -> ScreenwrightConfig:

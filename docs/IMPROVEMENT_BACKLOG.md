@@ -686,7 +686,16 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       directory left over from before this fix shipped), rejecting a pre-planted symlink, and an
       end-to-end proof that `capture_url` itself actually calls the helper (via a monkeypatched
       `_DEFAULT_OUTPUT` pointing at a temp path, not the real shared system temp dir).
-      `docs/MCP_TOOLS.md`/`docs/ARCHITECTURE.md` updated; wiki synced.)*
+      `docs/MCP_TOOLS.md`/`docs/ARCHITECTURE.md` updated; wiki synced. **Follow-up same day:**
+      the repo's Semgrep SAST job (`p/python` ruleset) flagged
+      `python.lang.security.audit.insecure-file-permissions` on the `os.chmod(path, 0o700)` line
+      — a false positive, verified locally with the exact same `semgrep --config=p/python
+      src/screenwright --error` invocation CI runs: the rule's generic advice ("a good default
+      is 0o644") is written for *files* it assumes should stay world-readable, and doesn't
+      distinguish that `0o700` on a *directory* is the maximally-restrictive choice, the opposite
+      of what the rule warns about. Suppressed with an inline `# nosemgrep:
+      insecure-file-permissions` plus a comment explaining why, confirmed to still format-check
+      clean and to bring the local Semgrep run back to 0 findings before repushing.)*
 
 ## Test coverage gaps
 
