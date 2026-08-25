@@ -36,7 +36,7 @@ screenwright-mcp = "screenwright.mcp_server:main"
 # bound reflects 3.x, already in active use in this project's own dev/CI
 # installs without issue. Revisit each bound deliberately when it needs
 # raising, rather than letting a future major version resolve silently.
-anthropic = ["anthropic>=0.30.0,<2.0.0"]
+anthropic = ["anthropic>=1.0.0,<2.0.0"]
 openai = ["openai>=1.0.0,<4.0.0"]
 ollama = ["ollama>=0.1.0"]
 vision = ["screenwright[anthropic,openai,ollama]"]
