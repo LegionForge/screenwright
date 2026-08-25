@@ -757,6 +757,24 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       mistakes are already caught, rather than discovered by watching a flow hang. 3 new tests in
       `tests/test_config.py`: accepts a reasonable duration (regression guard), rejects a
       units-confusion-sized value, rejects negative. README.md/`docs/ARCHITECTURE.md` updated.)*
+- [x] **#48 [medium, security, found 2026-08-24 by fresh review — same class as #15]
+      `ci.yml`'s `actions/checkout@v4`/`actions/setup-python@v5` referenced floating version
+      tags, not pinned commit SHAs** — #15 already SHA-pinned `publish.yml`'s PyPI-publish step
+      for exactly this reason (a compromised or rewritten tag would run untrusted code, there
+      with this repo's publish credentials), and `security.yml` SHA-pins its `dev-rig` reusable-
+      workflow reference for the same reason, but `ci.yml`'s own two actions were missed —
+      inconsistent with a standard this repo had already adopted elsewhere, not a new policy.
+      Lower blast radius than the publish step (no privileged credentials in `ci.yml`'s `test`
+      job), but still runs on every push/PR with repo checkout access. *(fixed 2026-08-24:
+      resolved `v4`/`v5` to their current commit SHAs via `gh api
+      repos/actions/checkout/git/refs/tags/v4` (and the `setup-python` equivalent) and pinned
+      both, with a trailing `# v4`/`# v5` comment matching `publish.yml`'s existing style, plus a
+      short header comment on why (and how to bump later — resolve the new tag, update the SHA
+      and the version comment together, don't switch back to a tag). Verified with `actionlint
+      .github/workflows/ci.yml` (0 findings) before pushing, since this is a workflow-file change
+      with no Python surface for `semgrep`/`pytest` to check. No test to add — nothing here is
+      exercised by the test suite; `actionlint` is the equivalent verification for this file
+      type.)*
 
 ## Test coverage gaps
 
