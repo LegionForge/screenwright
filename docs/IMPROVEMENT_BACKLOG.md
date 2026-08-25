@@ -833,6 +833,15 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       full suite already passed with it. 10 PRs remain open (pydantic/pytest/pytest-asyncio/
       rich/playwright floor bumps, 4 `github-actions` major bumps); `mcp` (#6) still
       deliberately unmerged.
+- [x] **Dependabot batch, fifth pick (2026-08-25): merged #9** (`pydantic` floor bump,
+      `>=2.0.0` → `>=2.13.4`) — no upper bound before or after (this dependency was already
+      unbounded), so this only tightens the floor to match reality: `2.13.4` is the exact
+      version already installed and exercised by the full test suite throughout this session.
+      Core dependency (not a dev/vision extra like the previous three merges), so given slightly
+      more scrutiny than a pure rubber-stamp — pydantic 2.x's minor releases have stayed
+      additive/backward-compatible, and 12/12 PR checks passed with no conflicts. 9 PRs remain
+      open (pytest/pytest-asyncio/rich/playwright floor bumps, 4 `github-actions` major bumps);
+      `mcp` (#6) still deliberately unmerged.
 
 ## Test coverage gaps
 
