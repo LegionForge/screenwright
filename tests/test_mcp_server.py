@@ -403,6 +403,53 @@ def test_describe_screenshot_returns_plain_description(tmp_path, monkeypatch):
     assert result == "A login form"
 
 
+def test_describe_screenshot_threads_custom_prompt_into_vision_config(tmp_path, monkeypatch):
+    import asyncio
+
+    from screenwright.vision import ScreenshotMetadata
+
+    png = tmp_path / "shot.png"
+    png.write_bytes(b"fake-png")
+
+    captured_prompts = []
+
+    def fake_describe(image_path, cfg):
+        captured_prompts.append(cfg.prompt)
+        return ScreenshotMetadata(description="ok")
+
+    monkeypatch.setattr("screenwright.vision.describe", fake_describe)
+
+    asyncio.run(
+        describe_screenshot(
+            str(png), structured_metadata=False, prompt="Focus on accessibility issues"
+        )
+    )
+
+    assert captured_prompts == ["Focus on accessibility issues"]
+
+
+def test_describe_screenshot_uses_default_prompt_when_not_given(tmp_path, monkeypatch):
+    import asyncio
+
+    from screenwright.config import VisionConfig
+    from screenwright.vision import ScreenshotMetadata
+
+    png = tmp_path / "shot.png"
+    png.write_bytes(b"fake-png")
+
+    captured_prompts = []
+
+    def fake_describe(image_path, cfg):
+        captured_prompts.append(cfg.prompt)
+        return ScreenshotMetadata(description="ok")
+
+    monkeypatch.setattr("screenwright.vision.describe", fake_describe)
+
+    asyncio.run(describe_screenshot(str(png), structured_metadata=False))
+
+    assert captured_prompts == [VisionConfig().prompt]
+
+
 @pytest.mark.integration
 def _png_dimensions(path):
     # PNG signature (8 bytes) + IHDR chunk length/type (8 bytes), then

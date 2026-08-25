@@ -595,6 +595,22 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       exists); `test_capture_element_accepts_new_capture_params` catches a wiring typo via
       `TypeError` even though an element-scoped capture's own dimensions don't move with
       viewport the way a full-page capture's do. `README.md`/`docs/MCP_TOOLS.md` updated.)*
+- [x] **#39 [low, small feature gap, found 2026-08-24 by fresh review — same class as #38]
+      `describe_screenshot` never exposed `VisionConfig.prompt`** — `prompt` is a real,
+      TOML-configurable field on `VisionConfig` (with a sensible built-in default), but the MCP
+      tool wrapper only exposed `provider`/`model`/`structured_metadata`, so an agent had no way
+      to ask for an accessibility-focused, non-English, or otherwise customized description
+      through this tool — only via a TOML config's `[vision] prompt`, which `describe_screenshot`
+      doesn't read. *(fixed 2026-08-24: added an opt-in `prompt: Optional[str] = None` param,
+      only forwarded into the `VisionConfig(...)` constructor call when given — passing
+      `prompt=None` explicitly would fail Pydantic validation since the field is typed `str`, not
+      `str | None`, so omitting the kwarg entirely is what lets `VisionConfig`'s own default
+      apply for existing callers. 2 new tests:
+      `test_describe_screenshot_threads_custom_prompt_into_vision_config` proves a custom prompt
+      actually reaches the underlying `describe()` call's `cfg.prompt` (not just that the call
+      succeeds); `test_describe_screenshot_uses_default_prompt_when_not_given` proves omitting it
+      falls back to `VisionConfig().prompt` rather than some other default. `README.md`/
+      `docs/MCP_TOOLS.md`/`docs/ARCHITECTURE.md` updated.)*
 
 ## Test coverage gaps
 

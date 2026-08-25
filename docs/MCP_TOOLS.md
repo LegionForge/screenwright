@@ -149,6 +149,7 @@ Send an already-captured PNG to a vision model independently of a flow run.
 | `provider` | `"anthropic" \| "ollama" \| "openai"` | no | `"anthropic"` (default) |
 | `model` | string | no | Model name — e.g. `"claude-haiku-4-5"`, `"gpt-4o-mini"`, `"moondream"` |
 | `structured_metadata` | bool | no | Default `true` — return JSON metadata instead of plain text |
+| `prompt` | string | no | Custom instruction for the vision model — e.g. `"Focus on accessibility issues"` or `"Describe in Spanish"`. Defaults to Screenwright's built-in generic description prompt. When `structured_metadata=true`, the JSON-structure instruction is still appended after this prompt, same as a TOML-configured `[vision] prompt` |
 
 **Returns:** `string` — JSON-encoded `ScreenshotMetadata` if `structured_metadata=true`, else the
 plain-text description.

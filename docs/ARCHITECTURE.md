@@ -257,3 +257,12 @@ sequenceDiagram
   signatures and passing them straight through to `capture_single_url`, typed as `Literal`s
   where `capture_single_url`'s own signature uses `str` — matching the discoverability lesson
   from #24 (a bare `str` param exposes no valid-value hints in the MCP schema an agent sees).
+- **`describe_screenshot` had the same param-parity gap, one field over.** `VisionConfig.prompt`
+  is a real, TOML-configurable field, but the MCP tool wrapper only ever exposed `provider`/
+  `model`/`structured_metadata`, silently falling back to the built-in generic description prompt
+  no matter what an agent needed — an agent wanting an accessibility-focused or non-English
+  description had no way to ask for one through this tool. Fixed by adding an opt-in
+  `prompt: Optional[str] = None` param that's only forwarded into the `VisionConfig(...)`
+  constructor call when given, so existing callers see no behavior change and still get
+  `VisionConfig`'s own default via Pydantic — passing `prompt=None` explicitly would instead have
+  failed validation, since the field is typed `str`, not `str | None`.

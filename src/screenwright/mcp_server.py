@@ -322,6 +322,7 @@ async def describe_screenshot(
     provider: Literal["anthropic", "ollama", "openai"] = "anthropic",
     model: str = "claude-haiku-4-5",
     structured_metadata: bool = True,
+    prompt: Optional[str] = None,
 ) -> str:
     """
     Send a captured screenshot to a vision model and return a description (or JSON metadata).
@@ -334,6 +335,11 @@ async def describe_screenshot(
                For ollama: 'moondream', 'llava'.
         structured_metadata: When true, returns a JSON string with description, components,
                               state, title, errors_visible, and accessibility_notes fields.
+        prompt: Custom instruction for the vision model — e.g. "Focus on accessibility
+                issues" or "Describe in Spanish". Defaults to Screenwright's built-in
+                generic description prompt. When structured_metadata=true, the JSON-
+                structure instruction is still appended after this prompt, same as a
+                TOML-configured `[vision] prompt`.
 
     Returns:
         Description string, or JSON string when structured_metadata is true.
@@ -345,11 +351,14 @@ async def describe_screenshot(
     if not path.exists():
         raise FileNotFoundError(f"Screenshot not found: {screenshot_path}")
 
-    vision_cfg = VisionConfig(
-        provider=provider,
-        model=model,
-        structured_metadata=structured_metadata,
-    )
+    vision_cfg_kwargs = {
+        "provider": provider,
+        "model": model,
+        "structured_metadata": structured_metadata,
+    }
+    if prompt is not None:
+        vision_cfg_kwargs["prompt"] = prompt
+    vision_cfg = VisionConfig(**vision_cfg_kwargs)
 
     metadata = await asyncio.to_thread(describe, path, vision_cfg)
 
