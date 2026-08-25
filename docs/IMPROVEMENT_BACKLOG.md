@@ -867,6 +867,28 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       bump, since it actually exercises real capture/video/HAR behavior rather than just
       importing the package. 5 PRs remain open (4 `github-actions` major bumps); `mcp` (#6)
       still deliberately unmerged.
+- [x] **Dependabot batch, eighth pick (2026-08-25): applied #2/#3/#4/#5 directly, and closed a
+      gap they exposed** — reviewing `actions/checkout` 4→7 (#3) surfaced that `publish.yml`'s
+      own `checkout`/`setup-python`/`upload-artifact` steps were never SHA-pinned at all, despite
+      #48 establishing that standard for `ci.yml`. This is worse than `ci.yml`'s gap was: the
+      `publish` job runs with `id-token: write` for PyPI's trusted-publishing OIDC exchange, so a
+      re-pointed floating tag on *any* step in this job pair — not just the
+      `pypa/gh-action-pypi-publish` step that was already pinned — could run untrusted code with
+      that privilege in scope. Read each action's release notes across every intervening major
+      (`checkout` v5/v6/v7, `setup-python` v6/v7, `upload-artifact` v5/v6/v7,
+      `download-artifact` v5/v6/v7/v8) for breaking changes before bumping — none affect this
+      repo's actual usage (no `artifact-ids` input, no custom `with:` beyond `name`/`path`/
+      `python-version`; the Node 24 runtime bumps were already forced on the existing pins per
+      CI's own deprecation warnings). *(fixed 2026-08-25: bumped `ci.yml`'s two existing pins to
+      their new SHAs (`checkout` v7.0.1, `setup-python` v7.0.0); added SHA pins to `publish.yml`
+      for the first time on all four previously-floating actions, each resolved independently via
+      `gh api repos/<owner>/<repo>/git/refs/tags/<tag>` rather than trusting the PR diffs
+      verbatim, plus a header comment on `publish.yml` explaining why its pinning matters even
+      more than `ci.yml`'s. Verified with `actionlint .github/workflows/ci.yml
+      .github/workflows/publish.yml` (0 findings). Applied directly rather than merging PRs #2-5
+      individually, since all four touch overlapping lines in the same two files and would have
+      produced the same conflict cascade #10 did — closed all four with an explanatory comment.
+      1 PR remains open: `mcp` (#6), still deliberately unmerged.)*
 
 ## Test coverage gaps
 
