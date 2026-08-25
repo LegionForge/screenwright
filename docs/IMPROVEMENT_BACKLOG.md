@@ -842,6 +842,22 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       additive/backward-compatible, and 12/12 PR checks passed with no conflicts. 9 PRs remain
       open (pytest/pytest-asyncio/rich/playwright floor bumps, 4 `github-actions` major bumps);
       `mcp` (#6) still deliberately unmerged.
+- [x] **Dependabot batch, sixth pick (2026-08-25): merged #7 + applied #10 directly** — the
+      first pair to get real scrutiny rather than a floor-matches-installed rubber stamp:
+      `pytest` `>=8.0.0` → `>=9.1.1` and `pytest-asyncio` `>=0.23.0` → `>=1.4.0` are both major-
+      version bumps for this project's *actual* installed versions (previously 8.x/0.x locally,
+      not already 9.x/1.x the way anthropic/openai/ollama/pydantic's floors already matched
+      what was installed). Read `pytest-asyncio` 1.4.0's release notes before merging: the one
+      behavior change (`event_loop_policy` fixture override deprecated in favor of
+      `pytest_asyncio_loop_factories`) doesn't apply — this project doesn't override that
+      fixture, just uses `asyncio_mode = "auto"`. Verified by actually installing both new
+      versions together and running the full suite locally (205 passed, 0 new warnings) *before*
+      merging, not after. #7 merged cleanly; #10 then conflicted (both touched the same
+      `dev = [...]` line in `pyproject.toml`) — applied its one-line change directly in a
+      follow-up commit instead of waiting for Dependabot to auto-rebase, since the compatibility
+      verification was already done, and closed #10 with an explanatory comment rather than
+      leaving a stale conflicting PR open. 7 PRs remain open (rich/playwright floor bumps, 4
+      `github-actions` major bumps); `mcp` (#6) still deliberately unmerged.
 
 ## Test coverage gaps
 
