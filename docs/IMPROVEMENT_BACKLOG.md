@@ -713,6 +713,18 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       pattern `test_capture_single_url_closes_browser_even_if_setup_fails` already established —
       a real deterministic launch failure isn't reliably producible in CI. `docs/ARCHITECTURE.md`
       updated; no public API surface changed, so README/MCP_TOOLS/wiki untouched.)*
+- [x] **#45 [low, small feature gap, found 2026-08-24 by fresh review] no `screenwright
+      --version`** — a standard, expected CLI convenience (bug reports, scripts checking the
+      installed version) with zero implementation before this: `__version__` already existed in
+      `screenwright/__init__.py` and `pyproject.toml`, just never exposed via the CLI. *(fixed
+      2026-08-24: added an eager `--version` option via a new `@app.callback()` on the Typer app
+      (the app previously had none) — prints `screenwright {__version__}` and exits before any
+      subcommand logic runs. Verified bare `screenwright` with no subcommand still errors with
+      "Missing command" exactly as before (Typer's default Click-group behavior, unaffected by
+      adding a callback without `invoke_without_command=True`) — no regression for existing
+      invocations. 1 new test, `test_version_flag_prints_installed_version_and_exits`, in
+      `tests/test_cli_validate.py` (non-integration-marked, matching that file's convention —
+      `--version` never launches a browser). README.md and the wiki's Getting-Started updated.)*
 
 ## Test coverage gaps
 

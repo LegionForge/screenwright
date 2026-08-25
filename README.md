@@ -138,6 +138,12 @@ that requires navigating each flow's URLs, which `validate` intentionally doesn'
 effects, no network dependency, works offline). `run` and `flows` report the same kind of clean
 error (not a raw Python traceback) if a config is invalid.
 
+Check the installed version:
+
+```bash
+screenwright --version
+```
+
 Fail the run if any screenshot changed since the last run — see [Screenshot Diff](#screenshot-diff---check):
 
 ```bash

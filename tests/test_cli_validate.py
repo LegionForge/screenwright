@@ -190,3 +190,12 @@ def test_flows_reports_toml_syntax_errors_instead_of_a_raw_traceback(tmp_path):
     assert result.exit_code == 1
     assert "TOML syntax error" in result.output
     assert isinstance(result.exception, SystemExit)
+
+
+def test_version_flag_prints_installed_version_and_exits(tmp_path):
+    from screenwright import __version__
+
+    result = runner.invoke(app, ["--version"])
+
+    assert result.exit_code == 0
+    assert __version__ in result.output

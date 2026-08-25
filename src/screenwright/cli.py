@@ -11,6 +11,7 @@ from pydantic import ValidationError
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
+from screenwright import __version__
 from screenwright.capture import FlowResult, run_flow
 from screenwright.config import Flow, ScreenwrightConfig, load_config
 from screenwright.output import write_flow_output, write_root_readme
@@ -22,6 +23,25 @@ app = typer.Typer(
     add_completion=False,
 )
 console = Console()
+
+
+def _version_callback(value: bool) -> None:
+    if value:
+        console.print(f"screenwright {__version__}")
+        raise typer.Exit()
+
+
+@app.callback()
+def _main(
+    version: Optional[bool] = typer.Option(
+        None,
+        "--version",
+        callback=_version_callback,
+        is_eager=True,
+        help="Show the installed version and exit.",
+    ),
+) -> None:
+    """Documentation screenshot pipeline — capture UI flows and generate markdown output."""
 
 
 def _resolve_output(config_output: str, override: Optional[Path]) -> Path:
