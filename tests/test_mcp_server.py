@@ -802,6 +802,28 @@ def test_describe_flow_bundles_index_and_capture_metadata(tmp_path):
     assert captures_by_name["hero"]["path"] == str(flow_dir / "hero.png")
 
 
+def test_describe_flow_treats_corrupted_json_sidecar_as_missing_metadata(tmp_path):
+    # A .json sidecar can exist but be unreadable — a write interrupted
+    # mid-process (the MCP server killed, disk full), or a manual edit that
+    # broke the JSON. describe_flow's own docstring promises metadata: None
+    # for this case, same as a missing sidecar, not a crash of the whole
+    # bundle over one bad artifact.
+    flow_dir = tmp_path / "out" / "homepage"
+    flow_dir.mkdir(parents=True)
+    (flow_dir / "index.md").write_text("# homepage\n")
+
+    (flow_dir / "hero.png").write_bytes(b"fake-png")
+    (flow_dir / "hero.json").write_text("{not valid json at all")
+
+    import asyncio
+
+    result = asyncio.run(describe_flow("homepage", output_dir=str(tmp_path / "out")))
+
+    assert result["index_md"] is not None
+    captures_by_name = {c["name"]: c for c in result["captures"]}
+    assert captures_by_name["hero"]["metadata"] is None
+
+
 def test_mcp_instructions_reference_real_tool_names():
     # `mcp.instructions` is sent verbatim to every connecting MCP client as
     # guidance on how to use this server — a tool name mentioned there that

@@ -364,10 +364,13 @@ async def describe_flow(
             {"name": str, "path": str, "metadata": dict | None}, ...
         ]}. index_md and captures are empty/None if the flow's output
         directory doesn't exist yet (it hasn't been run). A capture with no
-        .json sidecar has metadata: None rather than being omitted — the
-        common case being run_flow_tool was called without
-        vision_describe=true (its default), but also covers describe()
-        failing for just that one capture.
+        .json sidecar — or one that exists but fails to read/parse (e.g. a
+        write interrupted mid-process, or manual edits that broke the
+        JSON) — has metadata: None rather than being omitted or crashing
+        the whole call. The common case is run_flow_tool was called
+        without vision_describe=true (its default); the corrupted/
+        unreadable case also covers describe() failing for just that one
+        capture.
     """
     # flow_name builds a filesystem path below (out_root / flow_name) and,
     # like capture_url/capture_element's `name` param, can come from an LLM
@@ -384,12 +387,25 @@ async def describe_flow(
         return {"flow_name": flow_name, "index_md": None, "captures": []}
 
     index_path = flow_dir / "index.md"
-    index_md = index_path.read_text(encoding="utf-8") if index_path.exists() else None
+    try:
+        index_md = index_path.read_text(encoding="utf-8") if index_path.exists() else None
+    except OSError:
+        index_md = None
 
     captures = []
     for png_path in sorted(flow_dir.glob("*.png")):
         json_path = png_path.with_suffix(".json")
-        metadata = json.loads(json_path.read_text(encoding="utf-8")) if json_path.exists() else None
+        metadata = None
+        if json_path.exists():
+            try:
+                metadata = json.loads(json_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                # A sidecar that exists but is corrupted/unreadable (e.g. a
+                # write interrupted mid-process by the MCP server being
+                # killed) must not fail describe_flow's whole bundle over
+                # one bad artifact — degrade to metadata: None for this
+                # capture, same as a missing sidecar.
+                metadata = None
         captures.append({"name": png_path.stem, "path": str(png_path), "metadata": metadata})
 
     return {"flow_name": flow_name, "index_md": index_md, "captures": captures}

@@ -343,3 +343,14 @@ sequenceDiagram
   `wait_until = "networkidle"` instead of a static sleep. Caught at config-validation time
   (`screenwright validate`), the same place duplicate-name/`secret`-without-`${ENV_VAR}`
   mistakes are already caught.
+- **`describe_flow` would crash on a corrupted or unreadable `.json` sidecar instead of
+  degrading to `metadata: null`.** Its own docstring already promised "a capture with no `.json`
+  sidecar has `metadata: None`," but the actual code only handled the *missing*-sidecar case —
+  a sidecar that exists but fails to parse (a write interrupted mid-process by the MCP server
+  being killed, a manual edit that broke the JSON, a full disk) raised `json.JSONDecodeError`
+  uncaught, failing the entire read-only bundle over one bad artifact even though `index.md` and
+  every other capture's metadata were perfectly readable. Fixed by catching
+  `(OSError, json.JSONDecodeError)` around each sidecar's read+parse (and `OSError` around
+  `index.md`'s own read) and falling back to `None`/`metadata: null` — matching the contract the
+  docstring already claimed, and the same "one bad artifact shouldn't sink the whole call"
+  discipline `run_flow_tool`'s per-capture `vision_describe` failures already follow.

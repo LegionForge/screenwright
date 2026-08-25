@@ -940,6 +940,26 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       reference) checked out accurate, no changes needed there. *(fixed 2026-08-25: added one
       sentence to both README and the wiki noting the 5-minute bound and that it only matters for
       an unusually long/large recording. No code changed, so no new test.)*
+- [x] **#54 [medium, crash-on-error-path bug, found 2026-08-25 by fresh end-to-end read]
+      `describe_flow` crashed on a corrupted/unreadable `.json` sidecar instead of degrading to
+      `metadata: null`** — its own docstring already promised "a capture with no `.json` sidecar
+      has `metadata: None`," but the code only handled the *missing*-sidecar case: a sidecar that
+      exists but fails to parse (a write interrupted mid-process by the MCP server being killed,
+      a manual edit that broke the JSON, a full disk) raised `json.JSONDecodeError` uncaught,
+      failing the entire read-only bundle over one bad artifact — even though `index.md` and
+      every other capture's metadata were perfectly readable. Found by re-reading `capture.py`,
+      `mcp_server.py`, `config.py`, `vision.py`, `output.py`, and `cli.py` fresh end-to-end
+      (rather than via doc cross-checking) specifically looking for a place where documented
+      "never crashes"/"degrades gracefully" behavior didn't match the actual code. *(fixed
+      2026-08-25: wrapped each sidecar's read+parse in `try/except (OSError,
+      json.JSONDecodeError)` (and `index.md`'s own read in `try/except OSError`), falling back to
+      `None`/`metadata: null` on failure — matching the docstring's existing promise and the same
+      "one bad artifact shouldn't sink the whole call" discipline `run_flow_tool`'s per-capture
+      `vision_describe` failures already follow. 1 new test,
+      `test_describe_flow_treats_corrupted_json_sidecar_as_missing_metadata`, using a real
+      malformed `.json` file (not a mock) to prove the actual `json.loads()` failure path is
+      caught. `docs/MCP_TOOLS.md`/`docs/ARCHITECTURE.md` updated; no public API surface changed,
+      so README/wiki untouched.)*
 
 ## Test coverage gaps
 
