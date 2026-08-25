@@ -791,6 +791,22 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       `semgrep`) before pushing — no dedicated CLI validator for `dependabot.yml`'s schema is
       commonly available; GitHub validates it server-side once pushed. No test to add — same
       reasoning as #48, this isn't exercised by the Python test suite.)*
+- [x] **First Dependabot batch triaged (2026-08-25)** — #49's config immediately opened 14 PRs
+      (9 `pip`, 5 `github-actions`). Reviewed rather than bulk-merged, since several are major-
+      version bumps and one is the exact scenario this project already got burned by once.
+      Merged **#11** (`ruff` dev-dependency floor bump, `>=0.3.0` → `>=0.16.4`) after confirming
+      locally — not just trusting the PR's own green CI — that the newly-installed `ruff 0.16.4`
+      produces zero new lint/format findings against the current codebase (`ruff check .` /
+      `ruff format --check .` both still clean). Deliberately left **#6** (`mcp` requirement
+      raised to `>=2.0.0,<3.0.0`) unmerged and commented explaining why: `pyproject.toml`'s
+      `mcp>=1.0.0,<2.0.0` upper bound exists *specifically* because `mcp` 2.0.0 broke this
+      project's CI earlier this session (finding #15's incident) — merging #6 would silently
+      re-open that exact failure mode without first verifying `mcp_server.py`'s `FastMCP`/tool-
+      registration usage against the 2.x API. The other 12 PRs (pydantic/pytest/pytest-asyncio/
+      anthropic/openai/ollama/rich/playwright floor bumps, plus 4 `github-actions` major bumps)
+      left open for a future iteration to review individually rather than batch-approving —
+      each deserves the same "does this actually change what CI already validated" scrutiny #11
+      got, not a rubber stamp because the badge is green.
 
 ## Test coverage gaps
 
