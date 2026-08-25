@@ -928,6 +928,18 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       with a concrete example (an accessibility-focused prompt) and a note that
       `structured_metadata = true` still appends the JSON-structure instruction after a custom
       prompt, not instead of it. No code changed, so no new test.)*
+- [x] **#53 [low, doc completeness, found 2026-08-25 by fresh review] Video Recording docs never
+      mentioned the mp4 conversion timeout** — `#42` bounded `_convert_to_mp4`'s ffmpeg subprocess
+      to 5 minutes (kill-and-reap a hung process instead of hanging forever), but neither
+      README's "Video Recording" section nor its wiki twin (`Video-Recording.md`) mentioned this
+      — a user with an unusually long or large recording that hit the timeout would see a
+      `timed out after 300.0s and was killed` error with no documentation explaining where that
+      number comes from or that it's expected behavior, not a bug. Found while cross-checking the
+      remaining not-yet-reviewed wiki pages (`Home.md`, `Video-Recording.md`) against actual
+      behavior — `Home.md`'s page list and links (including the `.tours/getting-started.tour`
+      reference) checked out accurate, no changes needed there. *(fixed 2026-08-25: added one
+      sentence to both README and the wiki noting the 5-minute bound and that it only matters for
+      an unusually long/large recording. No code changed, so no new test.)*
 
 ## Test coverage gaps
 

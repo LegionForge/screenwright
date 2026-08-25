@@ -443,7 +443,10 @@ multiple flows if you only want part of a sequence recorded.
 to H.264 `.mp4` after recording finishes. Without it, output stays `.webm` — fine for GitHub
 READMEs and most players, but not for direct upload to LinkedIn/YouTube (see below). If `ffmpeg`
 isn't on `PATH` (or the conversion itself fails), the `.webm` and every screenshot from the flow
-are still written — the run reports the conversion failure rather than losing everything.
+are still written — the run reports the conversion failure rather than losing everything. The
+conversion is also bounded to 5 minutes — a hung/runaway ffmpeg process is killed rather than
+left running, reported the same way as any other conversion failure; this only matters for an
+unusually long or large recording.
 
 ---
 
