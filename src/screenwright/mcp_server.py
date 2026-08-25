@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import stat
 import tempfile
 from pathlib import Path
 from typing import Literal, Optional
@@ -53,15 +54,29 @@ def _ensure_private_default_output_dir(path: Path) -> None:
     `_DEFAULT_OUTPUT` itself — an explicit `output_dir` the caller chose
     (e.g. `docs/screenshots`, meant to be committed and shared) is left
     alone, since forcing its permissions could break that deliberate use.
+
+    Creates the directory first and only inspects what's already there on
+    `FileExistsError` — checking `path.is_symlink()` *before* creating would
+    leave a check-then-create race: an attacker could plant a symlink in the
+    gap between the check and `mkdir()`, and `Path.mkdir(exist_ok=True)`
+    follows symlinks when deciding whether the target already "is a
+    directory," silently succeeding through it. `os.lstat` (unlike
+    `os.stat`/`Path.is_dir()`) never follows symlinks, so it can't be fooled
+    the same way.
     """
-    if path.is_symlink():
-        raise RuntimeError(
-            f"Refusing to write through {path}: it's a symlink, not a real directory. "
-            "This is the shared default output directory in the system temp dir — a "
-            "symlink there could be a pre-planted attack redirecting captures "
-            "somewhere unintended. Pass an explicit output_dir instead."
-        )
-    path.mkdir(mode=0o700, exist_ok=True)
+    try:
+        os.mkdir(path, mode=0o700)
+    except FileExistsError:
+        st = os.lstat(path)
+        if stat.S_ISLNK(st.st_mode):
+            raise RuntimeError(
+                f"Refusing to write through {path}: it's a symlink, not a real directory. "
+                "This is the shared default output directory in the system temp dir — a "
+                "symlink there could be a pre-planted attack redirecting captures "
+                "somewhere unintended. Pass an explicit output_dir instead."
+            ) from None
+        if not stat.S_ISDIR(st.st_mode):
+            raise RuntimeError(f"{path} exists and is not a directory.") from None
     # This rule's default suggestion (0o644) is for *files* world-readable by
     # default; 0o700 here is the deliberately maximally-restrictive choice
     # for a *directory* (owner rwx, no group/other access at all) — the

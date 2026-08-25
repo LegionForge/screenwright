@@ -725,6 +725,23 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
       invocations. 1 new test, `test_version_flag_prints_installed_version_and_exits`, in
       `tests/test_cli_validate.py` (non-integration-marked, matching that file's convention —
       `--version` never launches a browser). README.md and the wiki's Getting-Started updated.)*
+- [x] **#46 [medium, security follow-up to #43, found 2026-08-24 by fresh review]
+      `_ensure_private_default_output_dir`'s symlink check had a check-then-create race** —
+      the #43 fix called `path.is_symlink()` *before* `path.mkdir(mode=0o700, exist_ok=True)`.
+      `Path.mkdir`'s `exist_ok` handling decides whether the target "already is a directory" via
+      a symlink-following check, so an attacker who plants a symlink in the gap between the
+      `is_symlink()` check and the `mkdir()` call would have it silently written through instead
+      of rejected — the exact attack #43 set out to close, just still possible in a narrow
+      window rather than fully closed. *(fixed 2026-08-24: rewrote to attempt `os.mkdir()`
+      first — atomic at the OS level, so nothing exists there yet succeeds outright with no
+      window to race — and only inspect what's already present on `FileExistsError`, using
+      `os.lstat` (which, unlike `os.stat`/`Path.is_dir()`, never follows symlinks) to tell a real
+      pre-existing directory (tighten permissions and continue) apart from a symlink or any other
+      non-directory (reject). 1 new test, `test_ensure_private_default_output_dir_rejects_regular_file`,
+      covering the "something else already there" branch the rewrite added (a plain file, not
+      just a symlink) — the existing symlink/loose-permissions/creation tests from #43 all still
+      pass unchanged against the new implementation. `docs/ARCHITECTURE.md` updated; no public
+      API surface changed, so README/MCP_TOOLS/wiki untouched beyond the Architecture note.)*
 
 ## Test coverage gaps
 

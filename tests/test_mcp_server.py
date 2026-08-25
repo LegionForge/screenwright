@@ -96,6 +96,18 @@ def test_ensure_private_default_output_dir_rejects_symlink(tmp_path):
         _ensure_private_default_output_dir(target)
 
 
+def test_ensure_private_default_output_dir_rejects_regular_file(tmp_path):
+    # Something other than a symlink or a directory (a plain file) already
+    # at the predictable _DEFAULT_OUTPUT path is also not safe to write
+    # through — same rejection path as the symlink case, just a different
+    # os.lstat() outcome.
+    target = tmp_path / "screenwright-output"
+    target.write_text("not a directory")
+
+    with pytest.raises(RuntimeError, match="not a directory"):
+        _ensure_private_default_output_dir(target)
+
+
 def test_capture_url_locks_down_default_output_dir_permissions(tmp_path, monkeypatch):
     # Proves capture_url actually calls _ensure_private_default_output_dir
     # when output_dir is omitted (not just that the helper works in

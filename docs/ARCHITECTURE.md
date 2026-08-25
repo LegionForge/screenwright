@@ -322,4 +322,12 @@ sequenceDiagram
   is read-only and needs no change. A flow's own subdirectory underneath (created by `run_flow`'s
   existing `flow_dir.mkdir(parents=True, exist_ok=True)`) doesn't need its own permissions
   tightened — the `0700` parent already blocks traversal by any other user regardless of the
-  child's own mode.
+  child's own mode. **Hardened again the same day:** the first version checked
+  `path.is_symlink()` *before* calling `path.mkdir(exist_ok=True)` — a check-then-create race,
+  since `Path.mkdir`'s `exist_ok` handling follows symlinks when deciding whether the target
+  "is a directory," so a symlink planted in the gap between the check and the `mkdir()` call
+  would be silently written through rather than rejected. Rewritten to attempt `os.mkdir()`
+  first and only inspect what's already there on `FileExistsError`, using `os.lstat` (which,
+  unlike `os.stat`/`Path.is_dir()`, never follows symlinks) to tell a real pre-existing directory
+  (tighten and continue) apart from a symlink or any other non-directory (reject) — closing the
+  race instead of just narrowing its window.
