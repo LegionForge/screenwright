@@ -8,12 +8,12 @@ import tempfile
 from pathlib import Path
 from typing import Literal, Optional
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 
 from screenwright.capture import FlowResult, capture_single_url, run_flow
 from screenwright.config import ScreenwrightConfig, load_config, validate_safe_name
 
-mcp = FastMCP(
+mcp = MCPServer(
     "screenwright",
     instructions=(
         "Screenwright captures UI screenshots for documentation. "
