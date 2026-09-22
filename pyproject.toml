@@ -10,8 +10,18 @@ authors = [{ name = "LegionForge", email = "jp@legionforge.org" }]
 license = { text = "MIT" }
 readme = "README.md"
 requires-python = ">=3.11"
+# playwright's upper bound guards against the same failure mode that broke CI
+# with mcp 2.0.0 (an unbounded >= silently resolving a future breaking major
+# release) — deferred when mcp/anthropic/openai were pinned since playwright
+# wasn't what broke CI that session, but the risk was always real. Checked
+# structurally compatible up to 1.63.0 before setting this bound: every
+# Playwright API this codebase actually calls (page.aria_snapshot(),
+# page.pdf(), the screenshot() animations/mask/mask_color kwargs,
+# new_context()'s record_har_path/storage_state/record_video_dir) is present
+# and unchanged, and the full test suite (including @pytest.mark.integration,
+# which launches a real browser) passes against 1.63.0.
 dependencies = [
-    "playwright>=1.62.0",
+    "playwright>=1.62.0,<2.0.0",
     "typer>=0.27.1",
     "pydantic>=2.13.5",
     "mcp>=2.1.1,<3.0.0",

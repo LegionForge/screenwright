@@ -1189,7 +1189,7 @@ except one pre-existing, inherent test-coverage note (`tests/test_capture.py` al
 live browser). Same consume/implement/verify/commit/push/check-off protocol as before — one item
 per iteration, no-op rather than force a low-quality change.
 
-- [ ] **[low, forward-compat] `playwright` dependency has no upper bound** — `pyproject.toml`:
+- [x] **[low, forward-compat] `playwright` dependency has no upper bound** — `pyproject.toml`:
       `"playwright>=1.62.0"` (currently resolving 1.63.0, already newer than the last version
       checked against this codebase). This is the exact same class of risk that broke CI with
       `mcp` 2.0.0 and prompted pinning `anthropic`/`openai` upper bounds in finding #8 of the
@@ -1201,7 +1201,14 @@ per iteration, no-op rather than force a low-quality change.
       `page.aria_snapshot()`, `page.pdf()`, `animations`/`mask` screenshot options, `record_har_path`,
       storage_state — are still present/stable in the latest 1.x, run the full suite against it),
       then add an upper bound (e.g. `<2.0.0`) with a comment explaining why, matching the existing
-      anthropic/openai bounds' style.
+      anthropic/openai bounds' style. *(fixed 2026-09-22, overnight loop: upgraded the local dev
+      venv to 1.63.0 first and directly verified every Playwright API this codebase calls —
+      `page.aria_snapshot()`, `page.pdf()`, `screenshot()`'s `animations`/`mask`/`mask_color`
+      kwargs, `new_context()`'s `record_har_path`/`storage_state`/`record_video_dir` — is present
+      and unchanged via `inspect.signature`, then ran the full suite including
+      `@pytest.mark.integration` (real Chromium launches) against it: 210 passed, 1 skipped.
+      Pinned `playwright>=1.62.0,<2.0.0` with a comment matching the anthropic/openai bounds'
+      style. No source code changed — this is a dependency-bound-only fix.)*
 - [ ] **[low, hygiene] Untracked stray `package.json` at repo root** — `{"packageManager":
       "yarn@4.18.0"}`, sitting untracked in `git status` (not committed, not gitignored). This is
       a pure-Python project (hatchling/pyproject.toml) with no JS tooling anywhere else in the
