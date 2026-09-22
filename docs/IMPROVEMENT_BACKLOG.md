@@ -1209,7 +1209,7 @@ per iteration, no-op rather than force a low-quality change.
       `@pytest.mark.integration` (real Chromium launches) against it: 210 passed, 1 skipped.
       Pinned `playwright>=1.62.0,<2.0.0` with a comment matching the anthropic/openai bounds'
       style. No source code changed — this is a dependency-bound-only fix.)*
-- [ ] **[low, hygiene] Untracked stray `package.json` at repo root** — `{"packageManager":
+- [x] **[low, hygiene] Untracked stray `package.json` at repo root** — `{"packageManager":
       "yarn@4.18.0"}`, sitting untracked in `git status` (not committed, not gitignored). This is
       a pure-Python project (hatchling/pyproject.toml) with no JS tooling anywhere else in the
       repo — nothing references this file, it isn't required by any script or CI job. Likely a
@@ -1217,6 +1217,12 @@ per iteration, no-op rather than force a low-quality change.
       some point. Fix: confirm nothing in `.github/workflows` or `scripts/` references it, then
       remove it (or, if there's a reason for it to exist that a closer look surfaces, commit it
       deliberately with a comment explaining why rather than leaving it untracked and unexplained).
+      *(fixed 2026-09-22, overnight loop: grepped `.github/`, `scripts/`, `pyproject.toml`,
+      `README.md`, and `docs/` for any reference to `package.json`/`packageManager`/`yarn` —
+      the only hit was this backlog entry itself. `git log --all -- package.json` returned
+      nothing — it was never committed, in this branch or any other. `.gitignore` doesn't
+      mention it either, so it wasn't even deliberately excluded. Deleted it; nothing else
+      changed.)*
 - [ ] **[low, feature-gap, non-urgent] `run --check` only detects changed/new captures, not
       removed ones** — `cli.py`'s `_snapshot_pngs`/`_process_flow` hash every PNG in a flow's
       output dir *before* the flow runs and diff against what exists *after*, keyed by filename.
