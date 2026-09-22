@@ -73,6 +73,22 @@ HTTP/SSE transport could be added in future for multi-client scenarios, but stdi
 
 None of these tools produce structured, docs-ready output from a declarative flow definition with vision-generated descriptions. That is the gap Screenwright fills.
 
+**Re-surveyed 2026-09-22** (twice — an interactive pass earlier in the day, refreshed here by the
+overnight autonomous R&D loop): the gap is unchanged. Two SaaS-wrapper entrants (ScreenshotRun,
+ScreenshotEngine) and one more general-automation MCP server (`kazuph/mcp-screenshot`) turned up
+in a fresh search; none add flow config or vision description. The one real datapoint worth
+tracking is Microsoft's **`playwright-cli`** (a CLI, not an MCP server — pitched as more
+token-efficient for coding agents since it skips loading MCP tool schemas/accessibility trees into
+context). Checked its actual feature set directly against this gap: no declarative/config-driven
+flow format (it's "agent runs shell commands," not reusable step sequences), no vision-model
+integration for descriptions, and no markdown/structured-docs output — it does accessibility
+snapshots and screenshots/PDF export, output aimed at agent consumption not documentation. Also
+ships "agentic video receipts" (annotated walkthrough videos for human review) and a "Vision Mode"
+whose scope isn't documented in enough detail to assess overlap. Not a competitor today, but it's
+the fastest-moving adjacent project — worth a re-check next survey pass if it grows config-driven
+flows or vision descriptions, since Microsoft could close this gap faster than a new entrant could
+open it from scratch.
+
 ---
 
 ## 6. Use case d (guided tour UI) deferred

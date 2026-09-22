@@ -1178,3 +1178,49 @@ the same commit. Skip an iteration (no-op) rather than force a low-quality chang
     without-`--check`-no-diff-report). README/ARCHITECTURE/wiki updated.
 
 ## Market research (pending — append when the research pass returns)
+
+## Overnight session — 2026-09-22
+
+Source: an autonomous overnight R&D loop (session-local cron, ~35 min cadence) — a fresh
+independent code review of `src/screenwright` (the last full pass was 2026-08-24/25, and the
+codebase has been essentially fully hardened against that pass's findings since) plus a
+market-research refresh (see DECISIONS.md §5). The backlog above this section is fully closed
+except one pre-existing, inherent test-coverage note (`tests/test_capture.py` always needs a
+live browser). Same consume/implement/verify/commit/push/check-off protocol as before — one item
+per iteration, no-op rather than force a low-quality change.
+
+- [ ] **[low, forward-compat] `playwright` dependency has no upper bound** — `pyproject.toml`:
+      `"playwright>=1.62.0"` (currently resolving 1.63.0, already newer than the last version
+      checked against this codebase). This is the exact same class of risk that broke CI with
+      `mcp` 2.0.0 and prompted pinning `anthropic`/`openai` upper bounds in finding #8 of the
+      original backlog — an unbounded `>=` silently resolving a future breaking major release.
+      Deferred there ("left as-is since neither is what actually broke CI this session"), but
+      that reasoning was about *urgency*, not about whether the risk is real — it still is. Fix:
+      check structural compatibility with the currently-pinned/tested version the way #8 did for
+      anthropic/openai (verify the actual Playwright APIs this codebase relies on —
+      `page.aria_snapshot()`, `page.pdf()`, `animations`/`mask` screenshot options, `record_har_path`,
+      storage_state — are still present/stable in the latest 1.x, run the full suite against it),
+      then add an upper bound (e.g. `<2.0.0`) with a comment explaining why, matching the existing
+      anthropic/openai bounds' style.
+- [ ] **[low, hygiene] Untracked stray `package.json` at repo root** — `{"packageManager":
+      "yarn@4.18.0"}`, sitting untracked in `git status` (not committed, not gitignored). This is
+      a pure-Python project (hatchling/pyproject.toml) with no JS tooling anywhere else in the
+      repo — nothing references this file, it isn't required by any script or CI job. Likely a
+      stray artifact from an unrelated `corepack`/`yarn` invocation run from this directory at
+      some point. Fix: confirm nothing in `.github/workflows` or `scripts/` references it, then
+      remove it (or, if there's a reason for it to exist that a closer look surfaces, commit it
+      deliberately with a comment explaining why rather than leaving it untracked and unexplained).
+- [ ] **[low, feature-gap, non-urgent] `run --check` only detects changed/new captures, not
+      removed ones** — `cli.py`'s `_snapshot_pngs`/`_process_flow` hash every PNG in a flow's
+      output dir *before* the flow runs and diff against what exists *after*, keyed by filename.
+      If a flow's step list shrinks (a `capture` step removed from a TOML flow), the stale PNG
+      from the previous run stays on disk untouched — `--check` reports zero changes even though
+      the flow's actual capture set has drifted from what the config now defines. Not a
+      regression (this is how `--check` has always worked, scoped down deliberately from a
+      fuller perceptual-diff feature per the original backlog item #11), but worth closing since
+      `--check` is marketed for CI pre-flight gating and "a capture silently stopped being
+      produced" is exactly the kind of drift such a gate should catch. Fix: also diff the
+      before/after *filename sets*, not just hashes of the intersection — report anything in
+      `before` but missing from `after` as removed (separate from "changed"), and decide whether
+      `--check` should treat a removal as a failure the same way a change is (probably yes, since
+      it's still "this run produced different output than the last one").
