@@ -106,7 +106,7 @@ async def _process_flow(
     progress: Progress,
     semaphore: asyncio.Semaphore,
     check: bool,
-) -> tuple[FlowResult, list[str]]:
+) -> tuple[FlowResult, list[str], list[str]]:
     """Run one flow, describe its captures, and write its output.
 
     The progress task is created only after the semaphore is acquired
@@ -115,9 +115,13 @@ async def _process_flow(
     before concurrency existed — no visible behavior change for the
     default case, only for opt-in --concurrency > 1.
 
-    Returns (result, changed_capture_names) — changed_capture_names is
-    always [] when check=False (no hashing done, no overhead for the
-    common case).
+    Returns (result, changed_capture_names, removed_capture_names) — both
+    lists are always [] when check=False (no hashing done, no overhead for
+    the common case). removed_capture_names is also always [] when the flow
+    itself failed mid-run (result.error set): a step that didn't get to run
+    this time isn't the same thing as a capture deliberately dropped from
+    the flow's config, and treating it as "removed" would double-report the
+    same failure that's already surfaced via result.error/failed_flows.
     """
     async with semaphore:
         task = progress.add_task(f"Running flow: [bold]{flow_def.name}[/bold]", total=None)
@@ -158,10 +162,16 @@ async def _process_flow(
             result.error = f"{result.error}; {write_error}" if result.error else write_error
 
         changed: list[str] = []
+        removed: list[str] = []
         if check:
             for capture in result.captures:
                 if before.get(capture.path.name) != _hash_file(capture.path):
                     changed.append(capture.capture_name)
+            if result.error is None:
+                current_names = {capture.path.name for capture in result.captures}
+                removed = [
+                    Path(filename).stem for filename in before if filename not in current_names
+                ]
 
         if result.error:
             progress.update(
@@ -175,7 +185,7 @@ async def _process_flow(
                 completed=True,
                 description=f"[green]Done:[/green] {flow_def.name}",
             )
-        return result, changed
+        return result, changed, removed
 
 
 async def _run_flows(
@@ -184,7 +194,7 @@ async def _run_flows(
     output_root: Path,
     concurrency: int,
     check: bool,
-) -> list[tuple[FlowResult, list[str]]]:
+) -> list[tuple[FlowResult, list[str], list[str]]]:
     semaphore = asyncio.Semaphore(concurrency)
     with Progress(
         SpinnerColumn(),
@@ -247,7 +257,7 @@ def run(
         raise typer.Exit(0)
 
     outcomes = asyncio.run(_run_flows(flows_to_run, cfg, output_root, concurrency, check))
-    all_results = [result for result, _ in outcomes]
+    all_results = [result for result, _, _ in outcomes]
 
     try:
         write_root_readme(all_results, output_root)
@@ -280,13 +290,28 @@ def run(
 
     check_found_changes = False
     if check:
-        changed_by_flow = {result.flow_name: changed for result, changed in outcomes if changed}
-        if changed_by_flow:
+        changed_by_flow = {result.flow_name: changed for result, changed, _ in outcomes if changed}
+        removed_by_flow = {result.flow_name: removed for result, _, removed in outcomes if removed}
+        if changed_by_flow or removed_by_flow:
             check_found_changes = True
-            console.print("\n[yellow]Screenshot changes detected:[/yellow]")
-            for flow_name, changed in changed_by_flow.items():
-                for capture_name in changed:
-                    console.print(f"  [yellow]•[/yellow] {flow_name}/{capture_name}")
+            if changed_by_flow:
+                console.print("\n[yellow]Screenshot changes detected:[/yellow]")
+                for flow_name, changed in changed_by_flow.items():
+                    for capture_name in changed:
+                        console.print(f"  [yellow]•[/yellow] {flow_name}/{capture_name}")
+            if removed_by_flow:
+                # A capture that existed in the previous run's output but
+                # wasn't produced this time (a `capture` step removed from
+                # the flow's TOML) — the hash-diff above only ever compares
+                # filenames present in *both* runs, so it can't see this on
+                # its own; _process_flow diffs the before/after filename
+                # sets separately to catch it. Reported the same as a
+                # changed capture (still fails --check) since it's still
+                # "this run produced different output than the last one."
+                console.print("\n[yellow]Screenshots removed since last run:[/yellow]")
+                for flow_name, removed in removed_by_flow.items():
+                    for capture_name in removed:
+                        console.print(f"  [yellow]•[/yellow] {flow_name}/{capture_name}")
         else:
             console.print("\n[green]No screenshot changes detected.[/green]")
 

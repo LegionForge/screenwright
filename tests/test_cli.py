@@ -300,6 +300,89 @@ def test_check_reports_changed_capture_after_content_change(tmp_path):
     assert "demo/shot" in second.output
 
 
+def test_check_reports_removed_capture_when_flow_drops_it(tmp_path):
+    # A `capture` step removed from the TOML between runs leaves the
+    # previous run's PNG orphaned on disk — the hash-diff alone can't see
+    # this (it only ever compares filenames present in *both* runs), so
+    # --check must separately diff the before/after filename sets to catch
+    # it, not just silently report zero changes.
+    html = tmp_path / "page.html"
+    html.write_text(_HTML)
+    toml_path = _write_two_capture_flow(tmp_path)
+    output_dir = tmp_path / "out"
+
+    first = runner.invoke(app, ["run", str(toml_path), "--output", str(output_dir), "--check"])
+    assert first.exit_code == 1  # first run: everything reported as changed
+
+    url = f"file://{html}"
+    toml_path.write_text(
+        f"""
+        [screenwright]
+        base_url = ""
+
+        [[flows]]
+        name = "demo"
+
+          [[flows.steps]]
+          action = "navigate"
+          url = "{url}"
+
+          [[flows.steps]]
+          action = "capture"
+          name = "first"
+        """
+    )
+    second = runner.invoke(app, ["run", str(toml_path), "--output", str(output_dir), "--check"])
+
+    assert second.exit_code == 1
+    assert "removed" in second.output.lower()
+    assert "demo/second" in second.output
+
+
+def test_check_does_not_report_removed_captures_on_a_mid_flow_failure(tmp_path):
+    # A capture step that fails at runtime (bad selector) isn't the same as
+    # a capture deliberately dropped from the flow's config — "second" not
+    # appearing in this run's captures must not be reported as "removed"
+    # (that's reserved for a real config change), since the failure is
+    # already surfaced separately via the flow's own partial-failure report.
+    html = tmp_path / "page.html"
+    html.write_text(_HTML)
+    url = f"file://{html}"
+    toml_path = _write_two_capture_flow(tmp_path)
+    output_dir = tmp_path / "out"
+
+    first = runner.invoke(app, ["run", str(toml_path), "--output", str(output_dir), "--check"])
+    assert first.exit_code == 1
+
+    toml_path.write_text(
+        f"""
+        [screenwright]
+        base_url = ""
+
+        [[flows]]
+        name = "demo"
+
+          [[flows.steps]]
+          action = "navigate"
+          url = "{url}"
+
+          [[flows.steps]]
+          action = "capture"
+          name = "first"
+
+          [[flows.steps]]
+          action = "capture"
+          name = "second"
+          selector = "#does-not-exist-anywhere"
+        """
+    )
+    second = runner.invoke(app, ["run", str(toml_path), "--output", str(output_dir), "--check"])
+
+    assert second.exit_code == 1
+    assert "stopped early" in second.output
+    assert "removed" not in second.output.lower()
+
+
 def test_run_without_check_does_not_print_diff_report(tmp_path):
     html = tmp_path / "page.html"
     html.write_text(_HTML)

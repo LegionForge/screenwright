@@ -1223,7 +1223,7 @@ per iteration, no-op rather than force a low-quality change.
       nothing — it was never committed, in this branch or any other. `.gitignore` doesn't
       mention it either, so it wasn't even deliberately excluded. Deleted it; nothing else
       changed.)*
-- [ ] **[low, feature-gap, non-urgent] `run --check` only detects changed/new captures, not
+- [x] **[low, feature-gap, non-urgent] `run --check` only detects changed/new captures, not
       removed ones** — `cli.py`'s `_snapshot_pngs`/`_process_flow` hash every PNG in a flow's
       output dir *before* the flow runs and diff against what exists *after*, keyed by filename.
       If a flow's step list shrinks (a `capture` step removed from a TOML flow), the stale PNG
@@ -1237,3 +1237,16 @@ per iteration, no-op rather than force a low-quality change.
       `before` but missing from `after` as removed (separate from "changed"), and decide whether
       `--check` should treat a removal as a failure the same way a change is (probably yes, since
       it's still "this run produced different output than the last one").
+      *(fixed 2026-09-22, overnight loop: `_process_flow` now returns a `(result, changed,
+      removed)` 3-tuple instead of `(result, changed)` — `removed` is the before-snapshot's
+      filenames minus the current run's capture filenames, reported as a separate "Screenshots
+      removed since last run" section in `run`'s `--check` output, and counted toward
+      `check_found_changes` (still exits 1) the same as a content change. Deliberately guarded
+      behind `result.error is None`: a capture step that fails mid-run isn't the same thing as a
+      capture deliberately dropped from the config, and treating a runtime failure as "removed"
+      would double-report the same problem the flow's own partial-failure reporting already
+      surfaces — covered by
+      `test_check_does_not_report_removed_captures_on_a_mid_flow_failure`. Also added
+      `test_check_reports_removed_capture_when_flow_drops_it` for the actual fix. Both in
+      `tests/test_cli.py`. `_run_flows`'s return type updated to match; the two call sites in
+      `run()` that unpacked the old 2-tuple updated accordingly.)*
