@@ -21,7 +21,7 @@ requires-python = ">=3.11"
 # and unchanged, and the full test suite (including @pytest.mark.integration,
 # which launches a real browser) passes against 1.63.0.
 dependencies = [
-    "playwright>=1.63.0,<2.0.0",
+    "playwright>=1.64.1,<2.0.0",
     "typer>=0.27.3",
     "pydantic>=2.13.5",
     "mcp>=2.2.0,<3.0.0",
